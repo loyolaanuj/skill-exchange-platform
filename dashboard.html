@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – SkillSwap</title>
+  <meta name="description" content="Your SkillSwap dashboard - manage requests, discover matches, and track your skill exchanges." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .dash-grid { grid-template-columns: 1fr; }
+    }
+
+    .dash-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .dash-main {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .welcome-banner {
+      background: linear-gradient(135deg, rgba(108,99,255,0.2), rgba(255,101,132,0.1));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .welcome-banner::after {
+      content: '⚡';
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 4rem;
+      opacity: 0.1;
+    }
+
+    .welcome-name {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .welcome-sub {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .profile-completeness {
+      margin-top: 12px;
+    }
+
+    .pc-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .pc-bar {
+      height: 5px;
+      background: var(--border-light);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .pc-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 3px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Request card */
+    .req-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: var(--transition);
+    }
+
+    .req-card:hover { border-color: var(--border); }
+
+    .req-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .req-card-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .req-card-skills {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .req-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .match-user-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .match-user-card:hover {
+      border-color: var(--primary);
+      transform: translateX(4px);
+    }
+
+    .profile-mini-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      text-align: center;
+    }
+
+    .profile-mini-avatar {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 auto 16px;
+      border: 3px solid var(--border);
+      overflow: hidden;
+    }
+
+    .profile-mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .profile-mini-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .profile-mini-email {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .quick-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .quick-stat-item {
+      background: var(--bg-card-3);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      text-align: center;
+    }
+
+    .quick-stat-num {
+      font-size: 1.4rem;
+      font-weight: 800;
+      font-family: var(--font-display);
+      color: var(--primary-light);
+    }
+
+    .quick-stat-label {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div id="toast-container"></div>
+  <div id="main-navbar"></div>
+
+  <div class="page-wrapper">
+    <div class="container">
+      <!-- Welcome Banner -->
+      <div class="welcome-banner mb-3 animate-fade-up" id="welcome-banner">
+        <div>
+          <div class="welcome-name" id="welcome-name">Welcome back! 👋</div>
+          <div class="welcome-sub">Here's what's happening on SkillSwap today.</div>
+          <div class="profile-completeness" id="pc-wrapper">
+            <div class="pc-label">
+              <span>Profile Completeness</span>
+              <span id="pc-pct">0%</span>
+            </div>
+            <div class="pc-bar"><div class="pc-fill" id="pc-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap">
+          <a href="profile.html" class="btn btn-secondary btn-sm">✏️ Edit Profile</a>
+          <a href="browse.html" class="btn btn-primary btn-sm">🔍 Find Partners</a>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="grid-4 mb-3" id="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(108,99,255,0.15)">🎁</div>
+          <div><div class="stat-number" id="stat-offered">-</div><div class="stat-label">Skills Offered</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(255,101,132,0.1)">🎯</div>
+          <div><div class="stat-number" id="stat-wanted">-</div><div class="stat-label">Skills Wanted</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(34,197,94,0.1)">🤝</div>
+          <div><div class="stat-number" id="stat-matches">-</div><div class="stat-label">Matches Found</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(245,158,11,0.1)">📨</div>
+          <div><div class="stat-number" id="stat-requests">-</div><div class="stat-label">Pending Requests</div></div>
+        </div>
+      </div>
+
+      <!-- Main Grid -->
+      <div class="dash-grid">
+        <!-- Sidebar -->
+        <div class="dash-sidebar">
+          <!-- Profile Mini Card -->
+          <div class="profile-mini-card animate-fade-up" id="profile-mini">
+            <div class="profile-mini-avatar" id="pm-avatar">?</div>
+            <div class="profile-mini-name" id="pm-name">–</div>
+            <div class="profile-mini-email" id="pm-email">–</div>
+            <div class="quick-stats">
+              <div class="quick-stat-item">
+                <div class="quick-stat-num" id="qs-offer">0</div>
+                <div class="quick-stat-label">Teaching</div>
+              </div>
+              <div class="quick-stat-item">
+                <div class="quick-stat-num" id="qs-want">0</div>
+                <div class="quick-stat-label">Learning</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px" id="rating-display"></div>
+            <a href="profile.html" class="btn btn-primary w-full mt-2" style="margin-top:16px;border-radius:var(--radius-md)">
+              View Full Profile
+            </a>
+          </div>
+
+          <!-- My Skills -->
+          <div class="card" id="my-skills-card">
+            <div class="section-header">
+              <span style="font-weight:600;font-size:0.95rem">🎁 Skills I Offer</span>
+            </div>
+            <div class="tags-list" id="my-offer-tags"></div>
+            <div class="divider"></div>
+            <div class="section-header">
+              <span style="font-weight:600;font-size:0.95rem">🎯 Skills I Want</span>
+            </div>
+            <div class="tags-list" id="my-want-tags"></div>
+          </div>
+        </div>
+
+        <!-- Main -->
+        <div class="dash-main">
+          <!-- Incoming Requests -->
+          <div>
+            <div class="section-header">
+              <div>
+                <div class="section-title" style="font-size:1.15rem">📨 Incoming Requests</div>
+              </div>
+              <span class="badge badge-warning" id="incoming-count">0</span>
+            </div>
+            <div id="incoming-requests-list">
+              <div class="empty-state">
+                <span class="empty-icon">📭</span>
+                <h3>No pending requests</h3>
+                <p>When someone sends you a skill exchange request, it'll appear here.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Outgoing Requests -->
+          <div>
+            <div class="section-header">
+              <div class="section-title" style="font-size:1.15rem">📤 Outgoing Requests</div>
+            </div>
+            <div id="outgoing-requests-list">
+              <div class="empty-state">
+                <span class="empty-icon">📮</span>
+                <h3>No outgoing requests</h3>
+                <p>Start browsing users and send your first skill exchange request!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Matched Users -->
+          <div>
+            <div class="section-header">
+              <div class="section-title" style="font-size:1.15rem">✨ Skill Matches</div>
+              <a href="browse.html" class="btn btn-secondary btn-sm">View All</a>
+            </div>
+            <div id="matches-list">
+              <div class="empty-state">
+                <span class="empty-icon">🔍</span>
+                <h3>No matches yet</h3>
+                <p>Complete your profile by adding skills offered and wanted to find matches.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Request Modal -->
+  <div class="modal-overlay hidden" id="request-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Send Skill Request</h3>
+        <button class="modal-close" id="close-request-modal">✕</button>
+      </div>
+      <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:20px" id="modal-subtitle"></p>
+      <div class="form-group">
+        <label class="form-label">Skill I'll Teach</label>
+        <select id="modal-offer-skill" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Skill I Want to Learn</label>
+        <select id="modal-want-skill" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message (Optional)</label>
+        <textarea id="modal-message" class="form-control" placeholder="Say something nice..."></textarea>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button class="btn btn-secondary" id="cancel-request-modal">Cancel</button>
+        <button class="btn btn-primary" id="send-request-btn" style="flex:1">Send Request 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="utils.js"></script>
+  <script>
+    let currentUser = null;
+    let myProfile = null;
+    let allUsers = [];
+    let targetUser = null; // for request modal
+
+    requireAuth(async (user) => {
+      currentUser = user;
+      await renderNavbar('dashboard');
+      await loadDashboard();
+    });
+
+    async function loadDashboard() {
+      // Load my profile
+      const snap = await db.collection('users').doc(currentUser.uid).get();
+      myProfile = snap.data() || {};
+      renderProfileMini();
+      renderMySkills();
+      renderStats();
+      listenToRequests();
+      loadMatches();
+    }
+
+    function renderProfileMini() {
+      const name = myProfile.displayName || currentUser.displayName || 'Anonymous';
+      document.getElementById('welcome-name').textContent = `Welcome back, ${name.split(' ')[0]}! 👋`;
+      document.getElementById('pm-name').textContent = name;
+      document.getElementById('pm-email').textContent = myProfile.email || currentUser.email;
+      document.getElementById('qs-offer').textContent = (myProfile.skillsOffered || []).length;
+      document.getElementById('qs-want').textContent = (myProfile.skillsWanted || []).length;
+
+      // Avatar
+      const av = document.getElementById('pm-avatar');
+      if (myProfile.photoURL) {
+        av.innerHTML = `<img src="${myProfile.photoURL}" alt="avatar">`;
+      } else {
+        av.textContent = getInitials(name);
+      }
+
+      // Rating stars
+      const rating = myProfile.rating || 0;
+      const ratingEl = document.getElementById('rating-display');
+      ratingEl.innerHTML = Array.from({length:5}, (_, i) =>
+        `<span class="star ${i < Math.round(rating) ? 'filled' : ''}">★</span>`
+      ).join('');
+      if (rating > 0) {
+        ratingEl.innerHTML += `<span style="font-size:0.75rem;color:var(--text-muted);margin-left:4px">${rating.toFixed(1)} (${myProfile.ratingCount || 0})</span>`;
+      }
+
+      // Profile completeness
+      let score = 0;
+      if (myProfile.displayName) score += 20;
+      if (myProfile.bio) score += 20;
+      if ((myProfile.skillsOffered || []).length > 0) score += 30;
+      if ((myProfile.skillsWanted || []).length > 0) score += 30;
+      document.getElementById('pc-fill').style.width = score + '%';
+      document.getElementById('pc-pct').textContent = score + '%';
+    }
+
+    function renderMySkills() {
+      const offerEl = document.getElementById('my-offer-tags');
+      const wantEl = document.getElementById('my-want-tags');
+
+      const offered = myProfile.skillsOffered || [];
+      const wanted = myProfile.skillsWanted || [];
+
+      offerEl.innerHTML = offered.length
+        ? offered.map(s => `<span class="skill-tag skill-tag-offer">${s}</span>`).join('')
+        : '<span style="color:var(--text-muted);font-size:0.8rem">None added yet</span>';
+
+      wantEl.innerHTML = wanted.length
+        ? wanted.map(s => `<span class="skill-tag skill-tag-want">${s}</span>`).join('')
+        : '<span style="color:var(--text-muted);font-size:0.8rem">None added yet</span>';
+    }
+
+    function renderStats() {
+      document.getElementById('stat-offered').textContent = (myProfile.skillsOffered || []).length;
+      document.getElementById('stat-wanted').textContent = (myProfile.skillsWanted || []).length;
+    }
+
+    function listenToRequests() {
+      // Incoming
+      db.collection('requests')
+        .where('toUid', '==', currentUser.uid)
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snap => {
+          const incoming = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const pending = incoming.filter(r => r.status === 'pending');
+          document.getElementById('incoming-count').textContent = pending.length;
+          document.getElementById('stat-requests').textContent = pending.length;
+          renderIncomingRequests(incoming);
+        });
+
+      // Outgoing
+      db.collection('requests')
+        .where('fromUid', '==', currentUser.uid)
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snap => {
+          const outgoing = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderOutgoingRequests(outgoing);
+        });
+    }
+
+    function renderIncomingRequests(requests) {
+      const el = document.getElementById('incoming-requests-list');
+      if (!requests.length) {
+        el.innerHTML = `<div class="empty-state"><span class="empty-icon">📭</span><h3>No requests</h3><p>Pending requests will appear here.</p></div>`;
+        return;
+      }
+      el.innerHTML = requests.map(r => `
+        <div class="req-card mb-1" style="margin-bottom:10px">
+          <div class="user-card-avatar" style="width:42px;height:42px;font-size:1rem;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:600;">
+            ${getInitials(r.fromName || '?')}
+          </div>
+          <div class="req-card-info">
+            <div class="req-card-name">${r.fromName || 'Unknown'}</div>
+            <div class="req-card-skills">Offers: <b>${r.skillOffered}</b> → Wants: <b>${r.skillWanted}</b></div>
+            ${r.message ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">"${r.message}"</div>` : ''}
+          </div>
+          <div class="req-card-actions">
+            ${r.status === 'pending' ? `
+              <button class="btn btn-success btn-sm" onclick="respondRequest('${r.id}', 'accepted')">✓ Accept</button>
+              <button class="btn btn-danger btn-sm" onclick="respondRequest('${r.id}', 'rejected')">✕</button>
+            ` : `<span class="badge badge-${r.status === 'accepted' ? 'success' : 'danger'}">${r.status}</span>`}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderOutgoingRequests(requests) {
+      const el = document.getElementById('outgoing-requests-list');
+      if (!requests.length) {
+        el.innerHTML = `<div class="empty-state"><span class="empty-icon">📮</span><h3>No outgoing requests</h3><p>Browse users and send a request!</p></div>`;
+        return;
+      }
+      el.innerHTML = requests.map(r => `
+        <div class="req-card" style="margin-bottom:10px">
+          <div class="user-card-avatar" style="width:42px;height:42px;font-size:1rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary));display:flex;align-items:center;justify-content:center;font-weight:600;">
+            ${getInitials(r.toName || '?')}
+          </div>
+          <div class="req-card-info">
+            <div class="req-card-name">To: ${r.toName || 'Unknown'}</div>
+            <div class="req-card-skills">Offering: <b>${r.skillOffered}</b> → For: <b>${r.skillWanted}</b></div>
+          </div>
+          <div class="req-card-actions">
+            <span class="badge badge-${r.status === 'pending' ? 'warning' : r.status === 'accepted' ? 'success' : 'danger'}">${r.status}</span>
+            ${r.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="cancelRequest('${r.id}')">Cancel</button>` : ''}
+            ${r.status === 'accepted' ? `<a href="chat.html?with=${r.toUid}" class="btn btn-primary btn-sm">💬 Chat</a>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function respondRequest(reqId, status) {
+      try {
+        const reqSnap = await db.collection('requests').doc(reqId).get();
+        const reqData = reqSnap.data();
+        await db.collection('requests').doc(reqId).update({ status });
+        showToast(`Request ${status}!`, status === 'accepted' ? 'success' : 'info');
+        if (status === 'accepted') {
+          // Create a chat doc
+          const chatId = getChatId(currentUser.uid, reqData.fromUid);
+          await db.collection('chats').doc(chatId).set({
+            participants: [currentUser.uid, reqData.fromUid],
+            participantNames: {
+              [currentUser.uid]: myProfile.displayName || currentUser.email,
+              [reqData.fromUid]: reqData.fromName
+            },
+            participantPhotos: {
+              [currentUser.uid]: myProfile.photoURL || '',
+              [reqData.fromUid]: reqData.fromPhoto || ''
+            },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessage: '',
+            lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+
+    async function cancelRequest(reqId) {
+      if (!confirm('Cancel this request?')) return;
+      await db.collection('requests').doc(reqId).delete();
+      showToast('Request cancelled.', 'info');
+    }
+
+    async function loadMatches() {
+      try {
+        const snap = await db.collection('users').get();
+        allUsers = snap.docs
+          .map(d => ({ uid: d.id, ...d.data() }))
+          .filter(u => u.uid !== currentUser.uid);
+
+        const myOffered = myProfile.skillsOffered || [];
+        const myWanted = myProfile.skillsWanted || [];
+
+        const matches = allUsers
+          .map(u => ({
+            ...u,
+            score: computeMatchScore(myOffered, myWanted, u.skillsOffered || [], u.skillsWanted || [])
+          }))
+          .filter(u => u.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+
+        document.getElementById('stat-matches').textContent = matches.length;
+        renderMatches(matches);
+      } catch (err) {
+        console.error('Match error:', err);
+      }
+    }
+
+    function renderMatches(matches) {
+      const el = document.getElementById('matches-list');
+      if (!matches.length) {
+        el.innerHTML = `<div class="empty-state"><span class="empty-icon">🔍</span><h3>No matches yet</h3><p>Add more skills to your profile to find matches.</p></div>`;
+        return;
+      }
+      el.innerHTML = matches.map(u => `
+        <div class="match-user-card mb-1" style="margin-bottom:10px" onclick="openUserModal('${u.uid}')">
+          <div class="user-card-avatar" style="width:44px;height:44px;font-size:1.1rem;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0;">
+            ${u.photoURL ? `<img src="${u.photoURL}" style="width:100%;height:100%;object-fit:cover">` : getInitials(u.displayName || '?')}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:0.9rem">${u.displayName || 'Unnamed'}</div>
+            <div class="tags-list" style="margin-top:4px">
+              ${(u.skillsOffered || []).slice(0,2).map(s => `<span class="skill-tag skill-tag-offer" style="font-size:0.7rem;padding:2px 8px">${s}</span>`).join('')}
+            </div>
+          </div>
+          <div>
+            <span class="match-score">🎯 ${u.score}%</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // For match card click → show user + send request option
+    async function openUserModal(uid) {
+      window.location.href = `browse.html?user=${uid}`;
+    }
+
+    // Request Modal
+    document.getElementById('close-request-modal').addEventListener('click', () => {
+      document.getElementById('request-modal').classList.add('hidden');
+    });
+
+    document.getElementById('cancel-request-modal').addEventListener('click', () => {
+      document.getElementById('request-modal').classList.add('hidden');
+    });
+
+    document.getElementById('send-request-btn').addEventListener('click', async () => {
+      if (!targetUser) return;
+      const offerSkill = document.getElementById('modal-offer-skill').value;
+      const wantSkill = document.getElementById('modal-want-skill').value;
+      const message = document.getElementById('modal-message').value.trim();
+
+      if (!offerSkill || !wantSkill) {
+        showToast('Please select skills for the exchange.', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('send-request-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      try {
+        await db.collection('requests').add({
+          fromUid: currentUser.uid,
+          fromName: myProfile.displayName || currentUser.email,
+          fromPhoto: myProfile.photoURL || '',
+          toUid: targetUser.uid,
+          toName: targetUser.displayName || targetUser.email,
+          toPhoto: targetUser.photoURL || '',
+          skillOffered: offerSkill,
+          skillWanted: wantSkill,
+          message,
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        document.getElementById('request-modal').classList.add('hidden');
+        showToast('Request sent successfully! 🚀', 'success');
+      } catch (err) {
+        showToast('Error sending request: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Request 🚀';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account – SkillSwap</title>
+  <meta name="description" content="Create your SkillSwap account and start exchanging skills today." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .auth-wrapper {
+      display: flex;
+      width: 100%;
+      max-width: 960px;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-light);
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-panel-left {
+      flex: 1;
+      background: linear-gradient(145deg, rgba(108,99,255,0.3), rgba(255,101,132,0.15));
+      padding: 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @media (max-width: 767px) { .auth-panel-left { display: none; } }
+
+    .auth-panel-left::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,101,132,0.2), transparent);
+    }
+
+    .auth-panel-right {
+      flex: 1;
+      background: var(--bg-card);
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    @media (max-width: 767px) {
+      .auth-wrapper { max-width: 460px; }
+      .auth-panel-right { padding: 32px 24px; }
+    }
+
+    .auth-panel-left-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.4rem;
+    }
+
+    .auth-panel-left-logo .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+
+    .checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .checklist li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .checklist .check {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+      color: var(--success);
+      flex-shrink: 0;
+    }
+
+    .google-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--bg-card-3);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: var(--transition);
+      font-family: var(--font-sans);
+      margin-bottom: 20px;
+    }
+
+    .google-btn:hover {
+      border-color: var(--primary);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .error-msg {
+      display: none;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: var(--danger);
+      margin-bottom: 16px;
+    }
+
+    .error-msg.show { display: block; }
+
+    .pw-strength {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-light);
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .pw-strength-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: var(--transition);
+      width: 0%;
+    }
+
+    .terms-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div id="toast-container"></div>
+
+  <div class="auth-wrapper animate-fade-in">
+    <!-- Left Panel -->
+    <div class="auth-panel-left">
+      <div class="auth-panel-left-logo">
+        <div class="logo-icon">⚡</div>
+        <span>SkillSwap</span>
+      </div>
+      <div style="position:relative;z-index:1">
+        <h2 style="font-size:1.7rem;margin-bottom:16px">Start your skill <span class="gradient-text">journey today</span></h2>
+        <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:28px">Join thousands of learners and teachers. Every account is free, forever.</p>
+        <ul class="checklist">
+          <li><span class="check">✓</span> Create a profile with your skills</li>
+          <li><span class="check">✓</span> Get matched with the perfect partners</li>
+          <li><span class="check">✓</span> Exchange knowledge, not money</li>
+          <li><span class="check">✓</span> Real-time chat with your partners</li>
+          <li><span class="check">✓</span> Track your learning progress</li>
+        </ul>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-muted);position:relative;z-index:1">
+        Already have an account? <a href="login.html">Sign In →</a>
+      </div>
+    </div>
+
+    <!-- Right Panel (Form) -->
+    <div class="auth-panel-right">
+      <div class="auth-form-header" style="margin-bottom:24px">
+        <h1 style="font-size:1.7rem;margin-bottom:6px">Create Account</h1>
+        <p style="color:var(--text-secondary);font-size:0.875rem">Already a member? <a href="login.html">Sign in →</a></p>
+      </div>
+
+      <!-- Google Sign Up -->
+      <button class="google-btn" id="google-signup-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="divider-text">or register with email</div>
+
+      <!-- Error -->
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Form -->
+      <form id="signup-form">
+        <div class="form-group">
+          <label class="form-label" for="displayName">Full Name</label>
+          <input type="text" id="displayName" class="form-control" placeholder="e.g. Alex Johnson" required autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" id="email" class="form-control" placeholder="you@example.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="At least 8 characters" required autocomplete="new-password" />
+          <div class="pw-strength">
+            <div class="pw-strength-bar" id="pw-bar"></div>
+          </div>
+          <span id="pw-label" style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;display:block"></span>
+        </div>
+        <button type="submit" class="btn btn-primary w-full btn-lg" id="signup-btn" style="border-radius:var(--radius-md)">
+          Create My Account →
+        </button>
+        <p class="terms-text">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="utils.js"></script>
+  <script>
+    redirectIfAuth();
+
+    const form = document.getElementById('signup-form');
+    const errorEl = document.getElementById('error-msg');
+    const signupBtn = document.getElementById('signup-btn');
+    const pwInput = document.getElementById('password');
+    const pwBar = document.getElementById('pw-bar');
+    const pwLabel = document.getElementById('pw-label');
+
+    // Password strength indicator
+    pwInput.addEventListener('input', () => {
+      const val = pwInput.value;
+      let score = 0;
+      if (val.length >= 8) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+
+      const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e'];
+      const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+      const widths = ['25%', '50%', '75%', '100%'];
+
+      if (val.length === 0) {
+        pwBar.style.width = '0';
+        pwLabel.textContent = '';
+      } else {
+        const idx = Math.min(score - 1, 3);
+        pwBar.style.width = widths[Math.max(idx, 0)];
+        pwBar.style.background = colors[Math.max(idx, 0)];
+        pwLabel.textContent = labels[Math.max(idx, 0)];
+        pwLabel.style.color = colors[Math.max(idx, 0)];
+      }
+    });
+
+    function setError(msg) {
+      errorEl.textContent = msg;
+      errorEl.classList.add('show');
+    }
+
+    function clearError() { errorEl.classList.remove('show'); }
+
+    async function createUserProfile(user, displayName) {
+      await db.collection('users').doc(user.uid).set({
+        displayName: displayName || user.displayName || '',
+        email: user.email,
+        photoURL: user.photoURL || '',
+        bio: '',
+        skillsOffered: [],
+        skillsWanted: [],
+        rating: 0,
+        ratingCount: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+
+      const name = document.getElementById('displayName').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = pwInput.value;
+
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.');
+        return;
+      }
+
+      signupBtn.disabled = true;
+      signupBtn.textContent = 'Creating Account...';
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await cred.user.updateProfile({ displayName: name });
+        await createUserProfile(cred.user, name);
+        showToast('Account created! Welcome to SkillSwap 🎉', 'success');
+        setTimeout(() => window.location.href = 'profile.html', 800);
+      } catch (err) {
+        signupBtn.disabled = false;
+        signupBtn.textContent = 'Create My Account →';
+        const msgs = {
+          'auth/email-already-in-use': 'This email is already registered. Try signing in.',
+          'auth/invalid-email': 'Please enter a valid email address.',
+          'auth/weak-password': 'Password is too weak. Use at least 8 characters.',
+        };
+        setError(msgs[err.code] || err.message);
+      }
+    });
+
+    // Google Sign-Up
+    document.getElementById('google-signup-btn').addEventListener('click', async () => {
+      clearError();
+      const provider = new firebase.auth.GoogleAuthProvider();
+      try {
+        const result = await auth.signInWithPopup(provider);
+        const user = result.user;
+        const snap = await db.collection('users').doc(user.uid).get();
+        if (!snap.exists) {
+          await createUserProfile(user, user.displayName);
+        }
+        showToast('Welcome to SkillSwap! 🎉', 'success');
+        setTimeout(() => window.location.href = snap.exists ? 'dashboard.html' : 'profile.html', 800);
+      } catch (err) {
+        setError(err.message);
+      }
+    });
+  </script>
+</body>
+</html>

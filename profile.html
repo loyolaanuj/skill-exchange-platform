@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Profile – SkillSwap</title>
+  <meta name="description"
+    content="Edit your SkillSwap profile, update your skills offered and wanted, and manage your account." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .profile-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .profile-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .avatar-wrapper {
+      position: relative;
+      width: 90px;
+      margin: 0 auto 20px;
+    }
+
+    .avatar-large {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 700;
+      border: 3px solid var(--primary);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .avatar-large img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar-edit-btn {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--bg-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .avatar-edit-btn:hover {
+      background: var(--primary-dark);
+      transform: scale(1.1);
+    }
+
+    #avatar-file-input {
+      display: none;
+    }
+
+    .profile-card-left {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-xl);
+      padding: 32px 28px;
+      text-align: center;
+      height: fit-content;
+      position: sticky;
+      top: calc(var(--navbar-h) + 20px);
+    }
+
+    .profile-badges {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+
+    .save-toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--success);
+      color: white;
+      padding: 12px 24px;
+      border-radius: var(--radius-full);
+      font-size: 0.875rem;
+      font-weight: 600;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .save-toast.show {
+      opacity: 1;
+    }
+
+    .autosave-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-left: 12px;
+      transition: all 0.3s;
+    }
+
+    .autosave-indicator.saving {
+      color: var(--warning);
+    }
+
+    .autosave-indicator.saved {
+      color: var(--success);
+    }
+
+    /* Offline banner */
+    .offline-banner {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 9999;
+      animation: slideDown 0.4s ease;
+    }
+
+    .offline-banner.show {
+      display: block;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-100%);
+      }
+
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    /* Rating section */
+    .rating-section {
+      background: var(--bg-card-3);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .rate-stars {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .rate-star {
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+
+    .rate-star:hover,
+    .rate-star.hovered {
+      color: var(--warning);
+    }
+
+    /* Progress bar for skills */
+    .skill-progress-item {
+      margin-bottom: 12px;
+    }
+
+    .skill-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+
+    .skill-progress-bar {
+      height: 5px;
+      background: var(--border-light);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .skill-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="offline-banner" id="offline-banner">📡 You're offline — showing cached profile data. Some changes may not
+    save.</div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div id="toast-container"></div>
+  <div id="main-navbar"></div>
+
+  <div class="page-wrapper">
+    <div class="container">
+      <div class="profile-layout">
+        <!-- Left Sidebar -->
+        <div>
+          <div class="profile-card-left">
+            <!-- Avatar -->
+            <div class="avatar-wrapper">
+              <div class="avatar-large" id="profile-avatar" title="Click to upload photo">?</div>
+              <div class="avatar-edit-btn" id="avatar-edit-btn" title="Upload photo">✏️</div>
+              <input type="file" id="avatar-file-input" accept="image/*" />
+            </div>
+
+            <h2 id="profile-display-name" style="font-size:1.2rem;margin-bottom:4px">–</h2>
+            <div id="profile-email" style="color:var(--text-muted);font-size:0.8rem;margin-bottom:12px">–</div>
+
+            <div class="profile-badges" id="profile-badges"></div>
+
+            <!-- Quick stats vertical -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0">
+              <div style="background:var(--bg-card-3);border-radius:var(--radius-md);padding:12px;text-align:center">
+                <div style="font-size:1.3rem;font-weight:800;color:var(--primary-light)" id="pf-offer-count">0</div>
+                <div style="font-size:0.7rem;color:var(--text-secondary)">Teaching</div>
+              </div>
+              <div style="background:var(--bg-card-3);border-radius:var(--radius-md);padding:12px;text-align:center">
+                <div style="font-size:1.3rem;font-weight:800;color:#FF8FA3" id="pf-want-count">0</div>
+                <div style="font-size:0.7rem;color:var(--text-secondary)">Learning</div>
+              </div>
+            </div>
+
+            <!-- Rating -->
+            <div class="rating-section" id="rating-section">
+              <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:6px">Community Rating</div>
+              <div class="rate-stars" id="display-stars"></div>
+              <div style="font-size:0.8rem;color:var(--text-muted)" id="rating-text">No ratings yet</div>
+            </div>
+
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+              <a href="browse.html" class="btn btn-primary w-full" style="border-radius:var(--radius-md)">🔍 Browse
+                Skills</a>
+              <a href="dashboard.html" class="btn btn-secondary w-full" style="border-radius:var(--radius-md)">🏠
+                Dashboard</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Edit Form -->
+        <div>
+          <!-- Profile Header Banner -->
+          <div class="profile-header mb-3">
+            <div style="display:flex;align-items:center;gap:20px">
+              <div class="profile-avatar" id="banner-avatar">?</div>
+              <div>
+                <h1 style="font-size:1.5rem;margin-bottom:6px" id="banner-name">Edit Your Profile</h1>
+                <p style="color:var(--text-secondary);font-size:0.875rem">Keep your profile updated to get better skill
+                  matches</p>
+                <div class="tags-list" id="banner-tags" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="tabs mb-3" id="profile-tabs">
+            <button class="tab-btn active" data-tab="info">👤 Basic Info</button>
+            <button class="tab-btn" data-tab="skills">🎯 Skills</button>
+            <button class="tab-btn" data-tab="account">⚙️ Account</button>
+          </div>
+
+          <!-- Tab: Basic Info -->
+          <div class="card" id="tab-info">
+            <h3 style="margin-bottom:24px;font-size:1.1rem">Basic Information</h3>
+            <form id="profile-form">
+              <div class="grid-2">
+                <div class="form-group">
+                  <label class="form-label" for="edit-name">Full Name</label>
+                  <input type="text" id="edit-name" class="form-control" placeholder="Your full name" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input type="email" class="form-control" id="edit-email" disabled
+                    style="opacity:0.6;cursor:not-allowed" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="edit-bio">Bio / About Me</label>
+                <textarea id="edit-bio" class="form-control" rows="4"
+                  placeholder="Tell the community about yourself, your background, and what you're passionate about..."></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="edit-location">Location (Optional)</label>
+                <input type="text" id="edit-location" class="form-control" placeholder="e.g. New Delhi, India" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="edit-website">Website / LinkedIn (Optional)</label>
+                <input type="url" id="edit-website" class="form-control" placeholder="https://..." />
+              </div>
+              <button type="submit" class="btn btn-primary btn-lg" id="save-info-btn"
+                style="border-radius:var(--radius-md)">
+                💾 Save Changes
+              </button>
+            </form>
+          </div>
+
+          <!-- Tab: Skills -->
+          <div class="card hidden" id="tab-skills">
+            <h3 style="margin-bottom:8px;font-size:1.1rem">Skills Management</h3>
+            <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:24px">
+              Type a skill and press <kbd
+                style="background:var(--bg-card-3);padding:2px 6px;border-radius:4px;font-size:0.75rem">Enter</kbd> or
+              <kbd style="background:var(--bg-card-3);padding:2px 6px;border-radius:4px;font-size:0.75rem">,</kbd> to
+              add it.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">🎁 Skills I Can Teach / Offer</label>
+              <div class="tag-input-container" id="offer-tag-container">
+                <input type="text" placeholder="e.g. Python, Guitar, Graphic Design..." id="offer-tag-input-field" />
+              </div>
+              <input type="hidden" id="offer-tags-hidden" />
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">Add skills you are comfortable
+                teaching others</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="form-group">
+              <label class="form-label">🎯 Skills I Want to Learn</label>
+              <div class="tag-input-container" id="want-tag-container">
+                <input type="text" placeholder="e.g. Photography, Spanish, Cooking..." id="want-tag-input-field" />
+              </div>
+              <input type="hidden" id="want-tags-hidden" />
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">Add skills you'd love to learn from
+                others</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Skill Progress visualization -->
+            <div id="skill-progress-section" class="hidden">
+              <h4 style="margin-bottom:16px;font-size:0.95rem">My Skills Proficiency</h4>
+              <div id="skill-progress-list"></div>
+            </div>
+
+            <button class="btn btn-primary btn-lg" id="save-skills-btn" style="border-radius:var(--radius-md)">
+              💾 Save Skills
+            </button>
+          </div>
+
+          <!-- Tab: Account -->
+          <div class="card hidden" id="tab-account">
+            <h3 style="margin-bottom:24px;font-size:1.1rem">Account Settings</h3>
+
+            <!-- Change Password -->
+            <div style="margin-bottom:32px">
+              <h4 style="margin-bottom:16px;font-size:0.95rem;color:var(--text-secondary)">🔐 Change Password</h4>
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" id="new-password" class="form-control" placeholder="At least 8 characters" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" id="confirm-password" class="form-control" placeholder="Repeat new password" />
+              </div>
+              <button class="btn btn-secondary" id="change-pw-btn">Update Password</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Danger Zone -->
+            <div>
+              <h4 style="margin-bottom:16px;font-size:0.95rem;color:var(--danger)">⚠️ Danger Zone</h4>
+              <div
+                style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-md);padding:20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div>
+                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:4px">Delete Account</div>
+                  <div style="font-size:0.8rem;color:var(--text-secondary)">Permanently delete your account and all your
+                    data. This cannot be undone.</div>
+                </div>
+                <button class="btn btn-danger btn-sm" id="delete-account-btn">Delete Account</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="utils.js"></script>
+  <script>
+    let currentUser = null;
+    let profileData = {};
+    let offerTagsController = null;
+    let wantTagsController = null;
+
+    requireAuth(async (user) => {
+      currentUser = user;
+      await renderNavbar('profile');
+
+      // Detect online/offline
+      const offlineBanner = document.getElementById('offline-banner');
+      function updateOnlineStatus() {
+        offlineBanner.classList.toggle('show', !navigator.onLine);
+      }
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+
+      await loadProfile();
+    });
+
+    const CACHE_KEY = () => `skillswap_profile_${currentUser.uid}`;
+
+    async function loadProfile() {
+      try {
+        const snap = await db.collection('users').doc(currentUser.uid).get();
+        profileData = snap.data() || {};
+
+        // ✅ Cache profile to localStorage whenever we successfully load online
+        if (snap.exists) {
+          try { localStorage.setItem(CACHE_KEY(), JSON.stringify(profileData)); } catch (_) { }
+        }
+
+        renderProfile(profileData);
+      } catch (err) {
+        // 🔌 Offline fallback: load from localStorage cache
+        const cached = localStorage.getItem(CACHE_KEY());
+        if (cached) {
+          profileData = JSON.parse(cached);
+          renderProfile(profileData);
+          showToast('Loaded from cache — you are offline.', 'warning', 5000);
+        } else {
+          showToast('Could not load profile. Please check your connection.', 'error');
+        }
+      }
+    }
+
+    function renderProfile(profileData) {
+
+      // Fill panel info
+      const name = profileData.displayName || currentUser.displayName || 'Anonymous';
+      document.getElementById('profile-display-name').textContent = name;
+      document.getElementById('profile-email').textContent = profileData.email || currentUser.email;
+      document.getElementById('pf-offer-count').textContent = (profileData.skillsOffered || []).length;
+      document.getElementById('pf-want-count').textContent = (profileData.skillsWanted || []).length;
+      document.getElementById('banner-name').textContent = name;
+
+      // Avatar
+      const avEl = document.getElementById('profile-avatar');
+      const bannerAvEl = document.getElementById('banner-avatar');
+      if (profileData.photoURL) {
+        avEl.innerHTML = `<img src="${profileData.photoURL}" alt="avatar">`;
+        bannerAvEl.innerHTML = `<img src="${profileData.photoURL}" alt="avatar">`;
+      } else {
+        avEl.textContent = getInitials(name);
+        bannerAvEl.textContent = getInitials(name);
+      }
+
+      // Badges
+      const badges = document.getElementById('profile-badges');
+      const offered = profileData.skillsOffered || [];
+      const wanted = profileData.skillsWanted || [];
+      badges.innerHTML = [
+        ...(offered.length ? ['<span class="badge badge-primary">Teacher</span>'] : []),
+        ...(wanted.length ? ['<span class="badge badge-success">Learner</span>'] : []),
+        ...(profileData.rating >= 4.5 ? ['<span class="badge badge-warning">⭐ Top Rated</span>'] : []),
+      ].join('');
+
+      // Banner tags (first 3 offered skills)
+      document.getElementById('banner-tags').innerHTML = offered.slice(0, 3).map(s =>
+        `<span class="skill-tag skill-tag-offer">${s}</span>`
+      ).join('');
+
+      // Rating
+      const rating = profileData.rating || 0;
+      const ratingCount = profileData.ratingCount || 0;
+      const starsEl = document.getElementById('display-stars');
+      starsEl.innerHTML = Array.from({ length: 5 }, (_, i) =>
+        `<span class="rate-star ${i < Math.round(rating) ? 'hovered' : ''}">★</span>`
+      ).join('');
+      document.getElementById('rating-text').textContent =
+        rating > 0 ? `${rating.toFixed(1)} out of 5 (${ratingCount} reviews)` : 'No ratings yet';
+
+      // Fill form
+      document.getElementById('edit-name').value = profileData.displayName || '';
+      document.getElementById('edit-email').value = profileData.email || currentUser.email;
+      document.getElementById('edit-bio').value = profileData.bio || '';
+      document.getElementById('edit-location').value = profileData.location || '';
+      document.getElementById('edit-website').value = profileData.website || '';
+
+      // Init tag inputs
+      offerTagsController = initTagInput('offer-tag-container', 'offer-tags-hidden', offered, 'offer');
+      wantTagsController = initTagInput('want-tag-container', 'want-tags-hidden', wanted, 'want');
+
+      // Skill progress (if skills exist)
+      if (offered.length > 0) {
+        document.getElementById('skill-progress-section').classList.remove('hidden');
+        document.getElementById('skill-progress-list').innerHTML = offered.map((s, i) => {
+          const pct = Math.min(95, 50 + (i * 15) % 50);
+          return `
+              <div class="skill-progress-item">
+                <div class="skill-progress-label"><span>${s}</span><span>${pct}%</span></div>
+                <div class="skill-progress-bar"><div class="skill-progress-fill" style="width:${pct}%"></div></div>
+              </div>
+            `;
+        }).join('');
+      }
+    }
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        ['tab-info', 'tab-skills', 'tab-account'].forEach(id => {
+          document.getElementById(id).classList.toggle('hidden', `tab-${tab}` !== id);
+        });
+      });
+    });
+
+    // Save Info
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('save-info-btn');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      try {
+        const updates = {
+          displayName: document.getElementById('edit-name').value.trim(),
+          bio: document.getElementById('edit-bio').value.trim(),
+          location: document.getElementById('edit-location').value.trim(),
+          website: document.getElementById('edit-website').value.trim(),
+          email: currentUser.email,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        };
+        await db.collection('users').doc(currentUser.uid).set(updates, { merge: true });
+        await currentUser.updateProfile({ displayName: updates.displayName });
+        // Update UI locally — no full reload so skill tags don't reset
+        document.getElementById('profile-display-name').textContent = updates.displayName;
+        document.getElementById('banner-name').textContent = updates.displayName;
+        showToast('Profile updated successfully! ✅', 'success');
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save Changes';
+      }
+    });
+
+    // ---- Auto-save skills helper ----
+    let autoSaveTimer = null;
+    const autoSaveIndicator = document.createElement('span');
+    autoSaveIndicator.className = 'autosave-indicator';
+    autoSaveIndicator.id = 'autosave-indicator';
+    document.getElementById('save-skills-btn').insertAdjacentElement('afterend', autoSaveIndicator);
+
+    async function persistSkills() {
+      const offeredVal = document.getElementById('offer-tags-hidden').value;
+      const wantedVal = document.getElementById('want-tags-hidden').value;
+      const offered = offeredVal ? offeredVal.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const wanted = wantedVal ? wantedVal.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      // Instant local UI update
+      document.getElementById('pf-offer-count').textContent = offered.length;
+      document.getElementById('pf-want-count').textContent = wanted.length;
+
+      const indicator = document.getElementById('autosave-indicator');
+      indicator.className = 'autosave-indicator saving';
+      indicator.textContent = '⏳ Saving...';
+
+      try {
+        await db.collection('users').doc(currentUser.uid).set({
+          skillsOffered: offered,
+          skillsWanted: wanted,
+          email: currentUser.email,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        indicator.className = 'autosave-indicator saved';
+        indicator.textContent = '✅ Saved!';
+        setTimeout(() => { indicator.textContent = ''; indicator.className = 'autosave-indicator'; }, 2500);
+      } catch (err) {
+        indicator.className = 'autosave-indicator';
+        indicator.textContent = '';
+        showToast('Error saving skills: ' + err.message, 'error');
+      }
+    }
+
+    function scheduleAutoSave() {
+      const indicator = document.getElementById('autosave-indicator');
+      indicator.className = 'autosave-indicator saving';
+      indicator.textContent = '✏️ Unsaved changes...';
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(persistSkills, 1200);
+    }
+
+    // Observe hidden inputs for tag changes
+    const offerHidden = document.getElementById('offer-tags-hidden');
+    const wantHidden = document.getElementById('want-tags-hidden');
+    const tagObserver = new MutationObserver(scheduleAutoSave);
+    // Watch for value changes via polling (hidden inputs don't fire MutationObserver)
+    let lastOfferVal = '', lastWantVal = '';
+    setInterval(() => {
+      const ov = offerHidden.value, wv = wantHidden.value;
+      if (ov !== lastOfferVal || wv !== lastWantVal) {
+        lastOfferVal = ov;
+        lastWantVal = wv;
+        scheduleAutoSave();
+      }
+    }, 300);
+
+    // Save Skills button (manual save, instant)
+    document.getElementById('save-skills-btn').addEventListener('click', async () => {
+      clearTimeout(autoSaveTimer);
+      const btn = document.getElementById('save-skills-btn');
+      btn.disabled = true;
+      btn.textContent = '✅ Saving...';
+      await persistSkills();
+      btn.disabled = false;
+      btn.textContent = '💾 Save Skills';
+    });
+
+    // Avatar Upload
+    document.getElementById('avatar-edit-btn').addEventListener('click', () => {
+      document.getElementById('avatar-file-input').click();
+    });
+
+    document.getElementById('profile-avatar').addEventListener('click', () => {
+      document.getElementById('avatar-file-input').click();
+    });
+
+    document.getElementById('avatar-file-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file.', 'warning');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image must be under 5MB.', 'warning');
+        return;
+      }
+
+      showToast('Uploading photo...', 'info');
+      try {
+        // Use Data URL if Firebase Storage not configured
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          const dataUrl = ev.target.result;
+          try {
+            // Try Firebase Storage first
+            const storage = firebase.storage();
+            const storageRef = storage.ref(`avatars/${currentUser.uid}`);
+            await storageRef.putString(dataUrl, 'data_url');
+            const downloadURL = await storageRef.getDownloadURL();
+            await db.collection('users').doc(currentUser.uid).update({ photoURL: downloadURL });
+            await currentUser.updateProfile({ photoURL: downloadURL });
+            showToast('Profile photo updated! ✅', 'success');
+            await loadProfile();
+          } catch (storageErr) {
+            // Fallback: store data URL directly in Firestore (not ideal for large images, OK for demo)
+            await db.collection('users').doc(currentUser.uid).update({ photoURL: dataUrl });
+            await currentUser.updateProfile({ photoURL: dataUrl });
+            showToast('Profile photo updated! ✅', 'success');
+            await loadProfile();
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (err) {
+        showToast('Upload failed: ' + err.message, 'error');
+      }
+    });
+
+    // Change Password
+    document.getElementById('change-pw-btn').addEventListener('click', async () => {
+      const newPw = document.getElementById('new-password').value;
+      const confirmPw = document.getElementById('confirm-password').value;
+      if (newPw.length < 8) {
+        showToast('Password must be at least 8 characters.', 'warning');
+        return;
+      }
+      if (newPw !== confirmPw) {
+        showToast('Passwords do not match.', 'warning');
+        return;
+      }
+      try {
+        await currentUser.updatePassword(newPw);
+        showToast('Password updated successfully!', 'success');
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+      } catch (err) {
+        if (err.code === 'auth/requires-recent-login') {
+          showToast('Please sign out and sign in again to change your password.', 'warning');
+        } else {
+          showToast('Error: ' + err.message, 'error');
+        }
+      }
+    });
+
+    // Delete Account
+    document.getElementById('delete-account-btn').addEventListener('click', async () => {
+      const confirmed = confirm('This will permanently delete your account and all data. This CANNOT be undone.\n\nAre you absolutely sure?');
+      if (!confirmed) return;
+      const confirmed2 = confirm('Last chance! Your data will be gone forever.');
+      if (!confirmed2) return;
+      try {
+        await db.collection('users').doc(currentUser.uid).delete();
+        await currentUser.delete();
+        showToast('Account deleted. Goodbye!', 'info');
+        setTimeout(() => window.location.href = 'index.html', 1000);
+      } catch (err) {
+        if (err.code === 'auth/requires-recent-login') {
+          showToast('Please sign out and sign in again to delete your account.', 'warning');
+        } else {
+          showToast('Error: ' + err.message, 'error');
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>
