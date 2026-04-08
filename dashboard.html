@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard – SkillSwap</title>
   <meta name="description" content="Your SkillSwap dashboard - manage requests, discover matches, and track your skill exchanges." />
+  <meta name="theme-color" content="#6C63FF" />
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <style>
     .dash-grid {
@@ -299,6 +301,22 @@
             </div>
             <div class="tags-list" id="my-want-tags"></div>
           </div>
+
+          <!-- Quick Links -->
+          <div class="card" style="padding:16px">
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:12px;color:var(--text-secondary)">⚡ Quick Links</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <a href="leaderboard.html" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);background:var(--bg-card-3);color:var(--text-primary);font-size:0.82rem;font-weight:500;transition:var(--transition);border:1px solid transparent" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='transparent'">
+                <span>🏆</span> Leaderboard
+              </a>
+              <a href="schedule.html" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);background:var(--bg-card-3);color:var(--text-primary);font-size:0.82rem;font-weight:500;transition:var(--transition);border:1px solid transparent" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='transparent'">
+                <span>📅</span> Schedule Session
+              </a>
+              <a href="notifications.html" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-md);background:var(--bg-card-3);color:var(--text-primary);font-size:0.82rem;font-weight:500;transition:var(--transition);border:1px solid transparent" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='transparent'">
+                <span>🔔</span> Notifications
+              </a>
+            </div>
+          </div>
         </div>
 
         <!-- Main -->
@@ -376,6 +394,36 @@
       <div style="display:flex;gap:12px">
         <button class="btn btn-secondary" id="cancel-request-modal">Cancel</button>
         <button class="btn btn-primary" id="send-request-btn" style="flex:1">Send Request 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rate Partner Modal -->
+  <div class="modal-overlay hidden" id="rate-modal">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3>⭐ Rate Your Exchange Partner</h3>
+        <button class="modal-close" id="close-rate-modal">✕</button>
+      </div>
+      <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:20px" id="rate-modal-sub">Share your experience</p>
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em">Your Rating</div>
+        <div style="display:flex;justify-content:center;gap:10px" id="rate-stars-input">
+          <span class="rate-star-btn" data-val="1" style="font-size:2.2rem;cursor:pointer;color:var(--text-muted);transition:all 0.15s">★</span>
+          <span class="rate-star-btn" data-val="2" style="font-size:2.2rem;cursor:pointer;color:var(--text-muted);transition:all 0.15s">★</span>
+          <span class="rate-star-btn" data-val="3" style="font-size:2.2rem;cursor:pointer;color:var(--text-muted);transition:all 0.15s">★</span>
+          <span class="rate-star-btn" data-val="4" style="font-size:2.2rem;cursor:pointer;color:var(--text-muted);transition:all 0.15s">★</span>
+          <span class="rate-star-btn" data-val="5" style="font-size:2.2rem;cursor:pointer;color:var(--text-muted);transition:all 0.15s">★</span>
+        </div>
+        <div id="rate-label" style="font-size:0.85rem;color:var(--text-muted);margin-top:8px">Click a star to rate</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Review (Optional)</label>
+        <textarea id="rate-review" class="form-control" placeholder="Describe your experience with this exchange partner..." style="min-height:80px"></textarea>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button class="btn btn-secondary" id="cancel-rate-modal">Skip</button>
+        <button class="btn btn-primary" id="submit-rate-btn" style="flex:1" disabled>⭐ Submit Rating</button>
       </div>
     </div>
   </div>
@@ -509,7 +557,10 @@
             ${r.status === 'pending' ? `
               <button class="btn btn-success btn-sm" onclick="respondRequest('${r.id}', 'accepted')">✓ Accept</button>
               <button class="btn btn-danger btn-sm" onclick="respondRequest('${r.id}', 'rejected')">✕</button>
-            ` : `<span class="badge badge-${r.status === 'accepted' ? 'success' : 'danger'}">${r.status}</span>`}
+            ` : `
+              <span class="badge badge-${r.status === 'accepted' ? 'success' : 'danger'}">${r.status}</span>
+              ${r.status === 'accepted' ? `<button class="btn btn-secondary btn-sm" onclick="openRateModal('${r.fromUid}','${r.fromName}')">⭐ Rate</button>` : ''}
+            `}
           </div>
         </div>
       `).join('');
@@ -533,7 +584,11 @@
           <div class="req-card-actions">
             <span class="badge badge-${r.status === 'pending' ? 'warning' : r.status === 'accepted' ? 'success' : 'danger'}">${r.status}</span>
             ${r.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="cancelRequest('${r.id}')">Cancel</button>` : ''}
-            ${r.status === 'accepted' ? `<a href="chat.html?with=${r.toUid}" class="btn btn-primary btn-sm">💬 Chat</a>` : ''}
+            ${r.status === 'accepted' ? `
+              <a href="chat.html?with=${r.toUid}" class="btn btn-primary btn-sm">💬 Chat</a>
+              <button class="btn btn-secondary btn-sm" onclick="openRateModal('${r.toUid}','${r.toName}')">⭐ Rate</button>
+              <a href="schedule.html" class="btn btn-secondary btn-sm">📅</a>
+            ` : ''}
           </div>
         </div>
       `).join('');
@@ -674,6 +729,84 @@
       } finally {
         btn.disabled = false;
         btn.textContent = 'Send Request 🚀';
+      }
+    });
+
+    // ---- Rating Modal Logic ----
+    let rateTarget = null;
+    let selectedStars = 0;
+    const rateLabels = ['', 'Poor 😕', 'Fair 🙂', 'Good 👍', 'Great 🌟', 'Excellent 🏆'];
+
+    function openRateModal(uid, name) {
+      rateTarget = uid;
+      selectedStars = 0;
+      document.getElementById('rate-modal-sub').textContent = `Rate your exchange with ${name}`;
+      document.getElementById('rate-review').value = '';
+      document.getElementById('submit-rate-btn').disabled = true;
+      document.getElementById('rate-label').textContent = 'Click a star to rate';
+      document.querySelectorAll('.rate-star-btn').forEach(s => s.style.color = 'var(--text-muted)');
+      document.getElementById('rate-modal').classList.remove('hidden');
+    }
+
+    document.getElementById('close-rate-modal')?.addEventListener('click', () => {
+      document.getElementById('rate-modal').classList.add('hidden');
+    });
+    document.getElementById('cancel-rate-modal')?.addEventListener('click', () => {
+      document.getElementById('rate-modal').classList.add('hidden');
+    });
+
+    // Star hover/click interactions
+    document.querySelectorAll('.rate-star-btn').forEach(star => {
+      star.addEventListener('mouseover', () => {
+        const val = parseInt(star.dataset.val);
+        document.querySelectorAll('.rate-star-btn').forEach(s => {
+          s.style.color = parseInt(s.dataset.val) <= val ? 'var(--warning)' : 'var(--text-muted)';
+        });
+      });
+      star.addEventListener('mouseout', () => {
+        document.querySelectorAll('.rate-star-btn').forEach(s => {
+          s.style.color = parseInt(s.dataset.val) <= selectedStars ? 'var(--warning)' : 'var(--text-muted)';
+        });
+      });
+      star.addEventListener('click', () => {
+        selectedStars = parseInt(star.dataset.val);
+        document.getElementById('rate-label').textContent = rateLabels[selectedStars];
+        document.getElementById('submit-rate-btn').disabled = false;
+        document.querySelectorAll('.rate-star-btn').forEach(s => {
+          s.style.color = parseInt(s.dataset.val) <= selectedStars ? 'var(--warning)' : 'var(--text-muted)';
+        });
+      });
+    });
+
+    document.getElementById('submit-rate-btn')?.addEventListener('click', async () => {
+      if (!rateTarget || !selectedStars) return;
+      const review = document.getElementById('rate-review').value.trim();
+      const btn = document.getElementById('submit-rate-btn');
+      btn.disabled = true; btn.textContent = 'Submitting...';
+      try {
+        // Add rating doc
+        await db.collection('ratings').add({
+          fromUid: currentUser.uid,
+          fromName: myProfile.displayName || currentUser.email,
+          toUid: rateTarget,
+          rating: selectedStars,
+          review,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        // Update user's aggregate rating
+        const ratingsSnap = await db.collection('ratings').where('toUid', '==', rateTarget).get();
+        const ratings = ratingsSnap.docs.map(d => d.data().rating);
+        const avgRating = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+        await db.collection('users').doc(rateTarget).update({
+          rating: parseFloat(avgRating.toFixed(1)),
+          ratingCount: ratings.length,
+        });
+        document.getElementById('rate-modal').classList.add('hidden');
+        showToast(`Rating submitted! Thank you for your feedback. ⭐`, 'success');
+      } catch (err) {
+        showToast('Error submitting rating: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = '⭐ Submit Rating';
       }
     });
   </script>

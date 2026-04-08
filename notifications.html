@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications – SkillSwap</title>
+  <meta name="description" content="View all your SkillSwap notifications — requests, acceptances, messages, and more." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .notif-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px; flex-wrap: wrap; gap: 16px;
+    }
+    .notif-filter-tabs {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .notif-filter-btn {
+      padding: 8px 16px; border-radius: var(--radius-full);
+      font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      background: var(--bg-card-3); border: 1px solid var(--border-light);
+      color: var(--text-secondary); transition: var(--transition);
+    }
+    .notif-filter-btn.active {
+      background: rgba(108,99,255,0.15); border-color: rgba(108,99,255,0.35);
+      color: var(--primary-light);
+    }
+
+    .notif-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .notif-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 16px 20px;
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg); transition: var(--transition);
+      cursor: pointer; position: relative;
+    }
+    .notif-item:hover { border-color: var(--border); transform: translateX(4px); }
+    .notif-item.unread {
+      border-left: 3px solid var(--primary);
+      background: rgba(108,99,255,0.04);
+    }
+    .notif-item.unread::before {
+      content: '';
+      position: absolute; top: 16px; right: 16px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--primary);
+    }
+
+    .notif-icon {
+      width: 44px; height: 44px; border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; flex-shrink: 0;
+    }
+    .notif-icon-request { background: rgba(108,99,255,0.15); }
+    .notif-icon-accepted { background: rgba(34,197,94,0.12); }
+    .notif-icon-rejected { background: rgba(239,68,68,0.12); }
+    .notif-icon-message { background: rgba(59,130,246,0.12); }
+    .notif-icon-system { background: rgba(245,158,11,0.12); }
+
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 3px; }
+    .notif-sub { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; }
+    .notif-time { font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; }
+    .notif-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    .unread-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--primary); color: white;
+      width: 22px; height: 22px; border-radius: 50%;
+      font-size: 0.7rem; font-weight: 700; margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div id="toast-container"></div>
+  <div id="main-navbar"></div>
+
+  <div class="page-wrapper">
+    <div class="container" style="max-width:800px">
+      <!-- Header -->
+      <div class="notif-header">
+        <div>
+          <h1 style="font-size:1.8rem;margin-bottom:6px">🔔 Notifications</h1>
+          <p style="color:var(--text-secondary);font-size:0.875rem">
+            Stay updated with your skill exchange activity
+            <span class="unread-badge" id="unread-count" style="display:none">0</span>
+          </p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" id="mark-all-read-btn">✓ Mark All Read</button>
+          <button class="btn btn-secondary btn-sm" id="clear-all-btn">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="notif-filter-tabs mb-3">
+        <button class="notif-filter-btn active" data-filter="all">All</button>
+        <button class="notif-filter-btn" data-filter="request">📨 Requests</button>
+        <button class="notif-filter-btn" data-filter="accepted">✅ Accepted</button>
+        <button class="notif-filter-btn" data-filter="message">💬 Messages</button>
+        <button class="notif-filter-btn" data-filter="unread">🔴 Unread</button>
+      </div>
+
+      <!-- Notifications List -->
+      <div class="notif-list" id="notif-list">
+        <div class="empty-state">
+          <span class="empty-icon">🔔</span>
+          <h3>Loading notifications...</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="utils.js"></script>
+  <script>
+    let currentUser = null;
+    let allNotifs = [];
+    let currentFilter = 'all';
+
+    requireAuth(async (user) => {
+      currentUser = user;
+      await renderNavbar('notifications');
+      listenToNotifications();
+    });
+
+    function listenToNotifications() {
+      // Listen to incoming requests
+      db.collection('requests')
+        .where('toUid', '==', currentUser.uid)
+        .orderBy('createdAt', 'desc')
+        .onSnapshot(snap => {
+          const incoming = snap.docs.map(d => {
+            const data = d.data();
+            return {
+              id: `req_${d.id}`,
+              refId: d.id,
+              type: data.status === 'pending' ? 'request' : data.status === 'accepted' ? 'accepted' : 'rejected',
+              icon: data.status === 'pending' ? '📨' : data.status === 'accepted' ? '✅' : '❌',
+              iconClass: data.status === 'pending' ? 'notif-icon-request' : data.status === 'accepted' ? 'notif-icon-accepted' : 'notif-icon-rejected',
+              title: data.status === 'pending'
+                ? `New request from ${data.fromName}`
+                : data.status === 'accepted'
+                  ? `${data.fromName} accepted your request`
+                  : `${data.fromName} declined the request`,
+              sub: `Exchange: ${data.skillOffered} ↔ ${data.skillWanted}${data.message ? ` · "${data.message}"` : ''}`,
+              time: data.createdAt,
+              unread: data.status === 'pending' && !data.read,
+              fromUid: data.fromUid,
+              status: data.status,
+              data,
+            };
+          });
+
+          // Also listen for accepted status on outgoing
+          db.collection('requests')
+            .where('fromUid', '==', currentUser.uid)
+            .where('status', 'in', ['accepted', 'rejected'])
+            .orderBy('createdAt', 'desc')
+            .onSnapshot(outSnap => {
+              const outgoing = outSnap.docs.map(d => {
+                const data = d.data();
+                return {
+                  id: `out_${d.id}`,
+                  refId: d.id,
+                  type: data.status === 'accepted' ? 'accepted' : 'rejected',
+                  icon: data.status === 'accepted' ? '🎉' : '❌',
+                  iconClass: data.status === 'accepted' ? 'notif-icon-accepted' : 'notif-icon-rejected',
+                  title: data.status === 'accepted'
+                    ? `${data.toName} accepted your exchange request!`
+                    : `${data.toName} declined your request`,
+                  sub: `Exchange: ${data.skillOffered} ↔ ${data.skillWanted}`,
+                  time: data.createdAt,
+                  unread: !data.readByFromUid,
+                  fromUid: data.toUid,
+                  status: data.status,
+                  data,
+                };
+              });
+
+              allNotifs = [...incoming, ...outgoing].sort((a, b) => {
+                const ta = a.time?.toDate?.()?.getTime() || 0;
+                const tb = b.time?.toDate?.()?.getTime() || 0;
+                return tb - ta;
+              });
+
+              renderNotifications();
+            });
+        });
+    }
+
+    function renderNotifications() {
+      let filtered = allNotifs;
+      if (currentFilter === 'request') filtered = allNotifs.filter(n => n.type === 'request');
+      else if (currentFilter === 'accepted') filtered = allNotifs.filter(n => n.type === 'accepted');
+      else if (currentFilter === 'message') filtered = allNotifs.filter(n => n.type === 'message');
+      else if (currentFilter === 'unread') filtered = allNotifs.filter(n => n.unread);
+
+      const unreadCount = allNotifs.filter(n => n.unread).length;
+      const ucBadge = document.getElementById('unread-count');
+      if (unreadCount > 0) {
+        ucBadge.style.display = 'inline-flex';
+        ucBadge.textContent = unreadCount;
+      } else {
+        ucBadge.style.display = 'none';
+      }
+
+      const el = document.getElementById('notif-list');
+      if (!filtered.length) {
+        el.innerHTML = `
+          <div class="empty-state">
+            <span class="empty-icon">${currentFilter === 'unread' ? '✅' : '🔔'}</span>
+            <h3>${currentFilter === 'unread' ? 'All caught up!' : 'No notifications yet'}</h3>
+            <p>${currentFilter === 'unread' ? 'No unread notifications.' : 'Your exchange activity will appear here.'}</p>
+          </div>
+        `;
+        return;
+      }
+
+      el.innerHTML = filtered.map(n => {
+        const timeStr = n.time ? formatTime(n.time) : '';
+        let actions = '';
+        if (n.type === 'request') {
+          actions = `
+            <button class="btn btn-success btn-sm" onclick="event.stopPropagation();respondReq('${n.refId}','accepted')">✓ Accept</button>
+            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();respondReq('${n.refId}','rejected')">✕ Decline</button>
+          `;
+        } else if (n.type === 'accepted') {
+          actions = `<a href="chat.html?with=${n.fromUid}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">💬 Open Chat</a>`;
+        }
+
+        return `
+          <div class="notif-item ${n.unread ? 'unread' : ''}" data-id="${n.id}" onclick="handleNotifClick('${n.id}','${n.fromUid}','${n.type}')">
+            <div class="notif-icon ${n.iconClass}">${n.icon}</div>
+            <div class="notif-body">
+              <div class="notif-title">${n.title}</div>
+              <div class="notif-sub">${n.sub}</div>
+              ${actions ? `<div class="notif-actions">${actions}</div>` : ''}
+              <div class="notif-time">${timeStr}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function respondReq(reqId, status) {
+      try {
+        const reqSnap = await db.collection('requests').doc(reqId).get();
+        const reqData = reqSnap.data();
+        await db.collection('requests').doc(reqId).update({ status, read: true });
+        if (status === 'accepted') {
+          const chatId = getChatId(currentUser.uid, reqData.fromUid);
+          await db.collection('chats').doc(chatId).set({
+            participants: [currentUser.uid, reqData.fromUid],
+            participantNames: {
+              [currentUser.uid]: (await db.collection('users').doc(currentUser.uid).get()).data()?.displayName || currentUser.email,
+              [reqData.fromUid]: reqData.fromName
+            },
+            participantPhotos: {
+              [currentUser.uid]: (await db.collection('users').doc(currentUser.uid).get()).data()?.photoURL || '',
+              [reqData.fromUid]: reqData.fromPhoto || ''
+            },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastMessage: '', lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          showToast('Request accepted! You can now chat. 🎉', 'success');
+        } else {
+          showToast('Request declined.', 'info');
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+
+    function handleNotifClick(id, fromUid, type) {
+      if (type === 'accepted') window.location.href = `chat.html?with=${fromUid}`;
+      else if (type === 'request') {} // handled by buttons
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.notif-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.notif-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderNotifications();
+      });
+    });
+
+    document.getElementById('mark-all-read-btn').addEventListener('click', async () => {
+      showToast('All notifications marked as read.', 'success');
+      allNotifs.forEach(n => n.unread = false);
+      renderNotifications();
+    });
+
+    document.getElementById('clear-all-btn').addEventListener('click', () => {
+      if (!confirm('Clear notification display? (Does not delete exchange requests)')) return;
+      allNotifs = [];
+      renderNotifications();
+      showToast('Notification display cleared.', 'info');
+    });
+  </script>
+</body>
+</html>

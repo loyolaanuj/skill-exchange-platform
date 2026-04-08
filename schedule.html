@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schedule Sessions – SkillSwap</title>
+  <meta name="description" content="Schedule skill exchange sessions with your partners on SkillSwap." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .sched-grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; }
+    @media (max-width: 900px) { .sched-grid { grid-template-columns: 1fr; } }
+
+    /* Calendar */
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .cal-nav-btn {
+      background: var(--bg-card-3); border: 1px solid var(--border-light);
+      border-radius: var(--radius-md); color: var(--text-primary);
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: var(--transition); font-size: 1rem;
+    }
+    .cal-nav-btn:hover { border-color: var(--primary); color: var(--primary-light); }
+    .cal-month-label { font-size: 1.1rem; font-weight: 700; }
+
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+    }
+    .cal-day-header {
+      text-align: center; font-size: 0.7rem; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase; padding: 8px 0;
+    }
+    .cal-day {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm); font-size: 0.85rem; cursor: pointer;
+      transition: var(--transition); position: relative;
+    }
+    .cal-day:hover:not(.empty):not(.past) { background: rgba(108,99,255,0.12); color: var(--primary-light); }
+    .cal-day.today {
+      background: rgba(108,99,255,0.15); color: var(--primary-light); font-weight: 700;
+      border: 1px solid rgba(108,99,255,0.35);
+    }
+    .cal-day.selected { background: var(--primary); color: white; font-weight: 700; }
+    .cal-day.past { opacity: 0.3; cursor: not-allowed; }
+    .cal-day.empty { cursor: default; }
+    .cal-day.has-event::after {
+      content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+    }
+    .cal-day.selected.has-event::after { background: white; }
+
+    /* Time slots */
+    .time-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+    .time-slot {
+      padding: 10px; border-radius: var(--radius-md); text-align: center;
+      font-size: 0.82rem; cursor: pointer; transition: var(--transition);
+      background: var(--bg-card-3); border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+    }
+    .time-slot:hover { border-color: rgba(108,99,255,0.35); color: var(--primary-light); }
+    .time-slot.selected { background: rgba(108,99,255,0.15); border-color: var(--primary); color: var(--primary-light); font-weight: 600; }
+    .time-slot.booked { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+
+    /* Session card */
+    .session-card {
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg); padding: 16px 20px;
+      transition: var(--transition); position: relative;
+    }
+    .session-card:hover { border-color: var(--border); }
+    .session-card-indicator {
+      position: absolute; top: 0; left: 0; bottom: 0; width: 3px;
+      border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    }
+    .session-day-header {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-muted); margin: 16px 0 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div id="toast-container"></div>
+  <div id="main-navbar"></div>
+
+  <div class="page-wrapper">
+    <div class="container">
+      <div style="margin-bottom:28px">
+        <h1 style="font-size:1.8rem;margin-bottom:8px">📅 Schedule Sessions</h1>
+        <p style="color:var(--text-secondary)">Plan and manage your skill exchange sessions with partners</p>
+      </div>
+
+      <div class="sched-grid">
+        <!-- Left: Calendar + Sessions -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <!-- Calendar -->
+          <div class="card">
+            <div class="cal-header">
+              <button class="cal-nav-btn" id="prev-month">‹</button>
+              <div class="cal-month-label" id="cal-month-label"></div>
+              <button class="cal-nav-btn" id="next-month">›</button>
+            </div>
+            <div class="cal-grid" id="cal-grid">
+              <!-- JS renders here -->
+            </div>
+            <div style="margin-top:16px;border-top:1px solid var(--border-light);padding-top:16px">
+              <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:12px">
+                🕐 Select a Time Slot
+              </div>
+              <div class="time-slots" id="time-slots">
+                <div style="grid-column:1/-1;color:var(--text-muted);font-size:0.8rem">Select a date first.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upcoming Sessions -->
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <h3 style="font-size:1.05rem">📋 Upcoming Sessions</h3>
+              <span class="badge badge-primary" id="session-count">0</span>
+            </div>
+            <div id="sessions-list">
+              <div class="empty-state" style="padding:30px">
+                <span class="empty-icon" style="font-size:2.5rem">📅</span>
+                <h3>No sessions scheduled</h3>
+                <p>Use the calendar to book a session with a partner</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Booking Form -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div class="card" id="booking-panel">
+            <h3 style="margin-bottom:6px;font-size:1.05rem">📅 Book a Session</h3>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:20px" id="selected-date-label">
+              Select a date and time from the calendar
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Partner</label>
+              <select class="form-control" id="session-partner">
+                <option value="">Select a skill exchange partner...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Session Type</label>
+              <select class="form-control" id="session-type">
+                <option value="video">📹 Video Call</option>
+                <option value="voice">🎙 Voice Call</option>
+                <option value="text">💬 Text / Chat</option>
+                <option value="in-person">🤝 In-Person</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Duration</label>
+              <select class="form-control" id="session-duration">
+                <option value="30">30 minutes</option>
+                <option value="60" selected>1 hour</option>
+                <option value="90">1.5 hours</option>
+                <option value="120">2 hours</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Topic / Agenda</label>
+              <textarea class="form-control" id="session-topic" placeholder="What will you cover in this session?" rows="3" style="min-height:80px"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Meeting Link (Optional)</label>
+              <input type="url" class="form-control" id="session-link" placeholder="https://meet.google.com/..." />
+            </div>
+
+            <button class="btn btn-primary w-full" id="book-session-btn" style="border-radius:var(--radius-md)" disabled>
+              📅 Book Session
+            </button>
+          </div>
+
+          <!-- Timezone info -->
+          <div class="card" style="padding:16px">
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px">🌍 Your Timezone</div>
+            <div style="font-size:0.875rem;font-weight:600" id="tz-display">Detecting...</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px" id="current-time-display"></div>
+          </div>
+
+          <!-- Quick Tips -->
+          <div class="card" style="padding:16px;background:rgba(108,99,255,0.05);border-color:rgba(108,99,255,0.2)">
+            <div style="font-size:0.85rem;font-weight:600;margin-bottom:12px">💡 Session Tips</div>
+            <ul style="list-style:none;display:flex;flex-direction:column;gap:8px">
+              ${['Confirm with your partner before booking', 'Share a meeting link for video sessions', 'Prepare a clear agenda for productive sessions', "Set reminders 30 mins before your session"].map(tip =>
+                `<li style="font-size:0.78rem;color:var(--text-secondary);display:flex;gap:8px;align-items:flex-start"><span style="color:var(--primary-light)">✓</span>${tip}</li>`
+              ).join('')}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="utils.js"></script>
+  <script>
+    let currentUser = null;
+    let myProfile = null;
+    let partners = [];
+    let mySessions = [];
+    let selectedDate = null;
+    let selectedTime = null;
+    let viewMonth = new Date();
+    viewMonth.setDate(1);
+
+    const TIMES = ['09:00 AM','10:00 AM','11:00 AM','12:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM','06:00 PM','07:00 PM','08:00 PM'];
+
+    requireAuth(async (user) => {
+      currentUser = user;
+      await renderNavbar('schedule');
+      await Promise.all([loadMyProfile(), loadPartners(), loadSessions()]);
+      renderCalendar();
+      updateTZ();
+      setInterval(updateTZ, 30000);
+    });
+
+    function updateTZ() {
+      document.getElementById('tz-display').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      document.getElementById('current-time-display').textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
+    async function loadMyProfile() {
+      const snap = await db.collection('users').doc(currentUser.uid).get();
+      myProfile = snap.data() || {};
+    }
+
+    async function loadPartners() {
+      try {
+        const snap = await db.collection('requests')
+          .where('status', '==', 'accepted')
+          .get();
+        const partnerIds = new Set();
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (data.fromUid === currentUser.uid) partnerIds.add(data.toUid);
+          else if (data.toUid === currentUser.uid) partnerIds.add(data.fromUid);
+        });
+        const partnerSnaps = await Promise.all([...partnerIds].map(id => db.collection('users').doc(id).get()));
+        partners = partnerSnaps.filter(s => s.exists).map(s => ({ uid: s.id, ...s.data() }));
+
+        const sel = document.getElementById('session-partner');
+        if (partners.length === 0) {
+          sel.innerHTML = '<option value="">No accepted partners yet</option>';
+        } else {
+          sel.innerHTML = '<option value="">Select partner...</option>' +
+            partners.map(p => `<option value="${p.uid}">${p.displayName || p.email}</option>`).join('');
+        }
+      } catch (err) {
+        console.error('loadPartners error:', err);
+      }
+    }
+
+    async function loadSessions() {
+      db.collection('sessions')
+        .where('participants', 'array-contains', currentUser.uid)
+        .orderBy('scheduledAt', 'asc')
+        .onSnapshot(snap => {
+          mySessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderSessionsList();
+          renderCalendar(); // re-render to show dots
+        });
+    }
+
+    function renderCalendar() {
+      const yr = viewMonth.getFullYear();
+      const mo = viewMonth.getMonth();
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      document.getElementById('cal-month-label').textContent = `${monthNames[mo]} ${yr}`;
+
+      const firstDay = new Date(yr, mo, 1).getDay();
+      const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      const sessionDays = new Set(mySessions.map(s => {
+        if (!s.scheduledAt) return null;
+        const d = s.scheduledAt.toDate ? s.scheduledAt.toDate() : new Date(s.scheduledAt);
+        if (d.getFullYear() === yr && d.getMonth() === mo) return d.getDate();
+        return null;
+      }).filter(Boolean));
+
+      const headers = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d =>
+        `<div class="cal-day-header">${d}</div>`
+      ).join('');
+
+      const blanks = Array(firstDay).fill('<div class="cal-day empty"></div>').join('');
+
+      const days = Array.from({length: daysInMonth}, (_, i) => {
+        const day = i + 1;
+        const date = new Date(yr, mo, day);
+        const isPast = date < today;
+        const isToday = date.getTime() === today.getTime();
+        const isSelected = selectedDate &&
+          selectedDate.getFullYear() === yr && selectedDate.getMonth() === mo && selectedDate.getDate() === day;
+        const hasEvent = sessionDays.has(day);
+        const cls = [
+          'cal-day',
+          isPast ? 'past' : '',
+          isToday ? 'today' : '',
+          isSelected ? 'selected' : '',
+          hasEvent ? 'has-event' : ''
+        ].filter(Boolean).join(' ');
+        return `<div class="${cls}" data-day="${day}" ${isPast ? '' : `onclick="selectDay(${day},${mo},${yr})"`}>${day}</div>`;
+      }).join('');
+
+      document.getElementById('cal-grid').innerHTML = headers + blanks + days;
+    }
+
+    function selectDay(day, mo, yr) {
+      selectedDate = new Date(yr, mo, day);
+      selectedTime = null;
+      renderCalendar();
+      document.getElementById('selected-date-label').textContent =
+        `📅 ${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`;
+
+      // Show time slots
+      const bookedTimes = new Set(mySessions
+        .filter(s => {
+          if (!s.scheduledAt) return false;
+          const d = s.scheduledAt.toDate ? s.scheduledAt.toDate() : new Date(s.scheduledAt);
+          return d.getFullYear() === yr && d.getMonth() === mo && d.getDate() === day;
+        })
+        .map(s => s.time)
+      );
+
+      document.getElementById('time-slots').innerHTML = TIMES.map(t => {
+        const isBooked = bookedTimes.has(t);
+        return `<div class="time-slot ${isBooked ? 'booked' : ''}" ${isBooked ? '' : `onclick="selectTime('${t}')"`}>${t}</div>`;
+      }).join('');
+
+      updateBookBtn();
+    }
+
+    function selectTime(t) {
+      selectedTime = t;
+      document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+      const slots = document.querySelectorAll('.time-slot');
+      slots.forEach(el => { if (el.textContent.trim() === t) el.classList.add('selected'); });
+      updateBookBtn();
+    }
+
+    function updateBookBtn() {
+      const btn = document.getElementById('book-session-btn');
+      btn.disabled = !(selectedDate && selectedTime && document.getElementById('session-partner').value);
+      if (selectedDate && selectedTime) {
+        btn.textContent = `📅 Book for ${selectedDate.toLocaleDateString('en-US', {month:'short',day:'numeric'})} at ${selectedTime}`;
+      } else {
+        btn.textContent = '📅 Book Session';
+      }
+    }
+
+    document.getElementById('session-partner').addEventListener('change', updateBookBtn);
+
+    document.getElementById('book-session-btn').addEventListener('click', async () => {
+      const partnerId = document.getElementById('session-partner').value;
+      const type = document.getElementById('session-type').value;
+      const duration = document.getElementById('session-duration').value;
+      const topic = document.getElementById('session-topic').value.trim();
+      const link = document.getElementById('session-link').value.trim();
+
+      if (!partnerId || !selectedDate || !selectedTime) {
+        showToast('Please select a partner, date, and time.', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('book-session-btn');
+      btn.disabled = true; btn.textContent = 'Booking...';
+
+      try {
+        const scheduledAt = new Date(selectedDate);
+        const [hourMin, ampm] = selectedTime.split(' ');
+        let [h, m] = hourMin.split(':').map(Number);
+        if (ampm === 'PM' && h !== 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+        scheduledAt.setHours(h, m, 0, 0);
+
+        const partner = partners.find(p => p.uid === partnerId);
+        await db.collection('sessions').add({
+          participants: [currentUser.uid, partnerId],
+          participantNames: {
+            [currentUser.uid]: myProfile.displayName || currentUser.email,
+            [partnerId]: partner?.displayName || partner?.email || 'Partner'
+          },
+          scheduledAt: firebase.firestore.Timestamp.fromDate(scheduledAt),
+          time: selectedTime,
+          type, duration: parseInt(duration),
+          topic: topic || 'Skill exchange session',
+          link: link || '',
+          status: 'scheduled',
+          createdBy: currentUser.uid,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+
+        showToast(`Session booked for ${selectedDate.toLocaleDateString('en-US', {weekday:'long',month:'short',day:'numeric'})} at ${selectedTime}! 🎉`, 'success');
+        document.getElementById('session-topic').value = '';
+        document.getElementById('session-link').value = '';
+        selectedTime = null;
+        document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+        updateBookBtn();
+      } catch (err) {
+        showToast('Booking failed: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        updateBookBtn();
+      }
+    });
+
+    function renderSessionsList() {
+      const el = document.getElementById('sessions-list');
+      const upcoming = mySessions.filter(s => {
+        if (!s.scheduledAt) return true;
+        const d = s.scheduledAt.toDate ? s.scheduledAt.toDate() : new Date(s.scheduledAt);
+        return d >= new Date();
+      });
+
+      document.getElementById('session-count').textContent = upcoming.length;
+
+      if (!upcoming.length) {
+        el.innerHTML = `
+          <div class="empty-state" style="padding:30px">
+            <span class="empty-icon" style="font-size:2.5rem">📅</span>
+            <h3>No upcoming sessions</h3>
+            <p>Select a date and book a session with a partner</p>
+          </div>
+        `;
+        return;
+      }
+
+      const typeIcons = { video: '📹', voice: '🎙', text: '💬', 'in-person': '🤝' };
+      const typeColors = {
+        video: 'rgba(108,99,255,0.5)', voice: 'rgba(59,130,246,0.5)',
+        text: 'rgba(34,197,94,0.5)', 'in-person': 'rgba(245,158,11,0.5)'
+      };
+
+      let lastDay = '';
+      el.innerHTML = upcoming.map(s => {
+        const schedDate = s.scheduledAt?.toDate ? s.scheduledAt.toDate() : new Date();
+        const dayLabel = schedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const dayHeader = dayLabel !== lastDay ? `<div class="session-day-header">${dayLabel}</div>` : '';
+        lastDay = dayLabel;
+
+        const partnerId = s.participants.find(p => p !== currentUser.uid);
+        const partnerName = s.participantNames?.[partnerId] || 'Partner';
+
+        return `
+          ${dayHeader}
+          <div class="session-card mb-1" style="margin-bottom:8px">
+            <div class="session-card-indicator" style="background:${typeColors[s.type] || 'var(--primary)'}"></div>
+            <div style="padding-left:4px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                <div>
+                  <div style="font-size:0.875rem;font-weight:600;margin-bottom:3px">${typeIcons[s.type] || '📅'} ${s.topic}</div>
+                  <div style="font-size:0.78rem;color:var(--text-secondary)">with ${partnerName} · ${s.time} · ${s.duration} min</div>
+                </div>
+                <span class="badge badge-success" style="flex-shrink:0">${s.status}</span>
+              </div>
+              ${s.link ? `<a href="${s.link}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="margin-top:10px">🔗 Join Session</a>` : ''}
+              <button class="btn btn-danger btn-sm" style="margin-top:10px;margin-left:${s.link?'8px':'0'}" onclick="cancelSession('${s.id}')">Cancel</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function cancelSession(sessionId) {
+      if (!confirm('Cancel this session?')) return;
+      try {
+        await db.collection('sessions').doc(sessionId).update({ status: 'cancelled' });
+        showToast('Session cancelled.', 'info');
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+
+    document.getElementById('prev-month').addEventListener('click', () => {
+      viewMonth.setMonth(viewMonth.getMonth() - 1);
+      renderCalendar();
+    });
+    document.getElementById('next-month').addEventListener('click', () => {
+      viewMonth.setMonth(viewMonth.getMonth() + 1);
+      renderCalendar();
+    });
+  </script>
+</body>
+</html>

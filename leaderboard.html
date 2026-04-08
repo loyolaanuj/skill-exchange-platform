@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard & Analytics – SkillSwap</title>
+  <meta name="description" content="See top skill exchangers, community analytics, and earn achievement badges on SkillSwap." />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .lb-hero {
+      background: linear-gradient(135deg, rgba(108,99,255,0.18), rgba(255,101,132,0.12));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 40px 48px;
+      margin-bottom: 32px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .lb-hero::before {
+      content: '🏆';
+      position: absolute;
+      font-size: 8rem;
+      opacity: 0.06;
+      top: -10px; right: 20px;
+    }
+    .lb-hero h1 { font-size: 2.2rem; margin-bottom: 12px; }
+    .lb-hero p { color: var(--text-secondary); font-size: 1rem; }
+
+    .lb-tabs {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .lb-tab {
+      padding: 10px 20px; border-radius: var(--radius-full);
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border-light);
+      background: var(--bg-card-3); color: var(--text-secondary);
+      transition: var(--transition);
+    }
+    .lb-tab.active, .lb-tab:hover {
+      background: rgba(108,99,255,0.15); border-color: rgba(108,99,255,0.35);
+      color: var(--primary-light);
+    }
+
+    .lb-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+    @media (max-width: 900px) { .lb-grid { grid-template-columns: 1fr; } }
+
+    /* Podium */
+    .podium-row {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 16px; margin-bottom: 32px; height: 180px;
+    }
+    .podium-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px;
+    }
+    .podium-avatar {
+      border-radius: 50%; overflow: hidden;
+      border: 3px solid transparent;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      position: relative;
+    }
+    .podium-crown {
+      position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+      font-size: 1.2rem;
+    }
+    .podium-block {
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 800;
+      color: white;
+    }
+    .podium-1 .podium-avatar { width: 68px; height: 68px; font-size: 1.4rem; border-color: gold; }
+    .podium-2 .podium-avatar { width: 58px; height: 58px; font-size: 1.2rem; border-color: silver; }
+    .podium-3 .podium-avatar { width: 52px; height: 52px; font-size: 1rem; border-color: #cd7f32; }
+    .podium-1 .podium-block { height: 110px; width: 90px; background: linear-gradient(180deg,#6C63FF,#5A52E0); }
+    .podium-2 .podium-block { height: 80px; width: 80px; background: linear-gradient(180deg,#9F9F9F,#777); }
+    .podium-3 .podium-block { height: 58px; width: 76px; background: linear-gradient(180deg,#cd7f32,#a0632a); }
+    .podium-name { font-size: 0.78rem; font-weight: 600; text-align: center; max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .podium-score { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* Leaderboard list */
+    .lb-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      transition: var(--transition);
+      cursor: pointer;
+    }
+    .lb-row:hover { background: var(--bg-card-3); }
+    .lb-row.is-me { background: rgba(108,99,255,0.08); border: 1px solid rgba(108,99,255,0.2); }
+    .lb-rank { font-size: 0.85rem; font-weight: 800; width: 28px; text-align: center; color: var(--text-muted); }
+    .lb-rank.top3 { color: var(--warning); }
+    .lb-info { flex: 1; min-width: 0; }
+    .lb-user-name { font-size: 0.9rem; font-weight: 600; }
+    .lb-user-sub { font-size: 0.75rem; color: var(--text-secondary); }
+    .lb-score-col { font-size: 1rem; font-weight: 800; font-family: var(--font-display); color: var(--primary-light); min-width: 60px; text-align: right; }
+    .lb-trend { font-size: 0.75rem; margin-left: 4px; }
+    .lb-trend.up { color: var(--success); }
+    .lb-trend.down { color: var(--danger); }
+
+    /* Activity heatmap-style chart */
+    .activity-chart { margin-top: 16px; }
+    .activity-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+    .activity-bar {
+      flex: 1; border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, var(--primary), rgba(108,99,255,0.3));
+      min-height: 4px; transition: height 0.5s ease;
+      cursor: pointer; position: relative;
+    }
+    .activity-bar:hover::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 6px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-card-2); border: 1px solid var(--border-light);
+      padding: 4px 8px; border-radius: 6px; font-size: 0.7rem;
+      white-space: nowrap; z-index: 10;
+    }
+    .activity-labels { display: flex; gap: 4px; margin-top: 6px; }
+    .activity-label { flex: 1; text-align: center; font-size: 0.62rem; color: var(--text-muted); }
+
+    /* Achievements */
+    .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .achievement-badge {
+      background: var(--bg-card-3); border: 1px solid var(--border-light);
+      border-radius: var(--radius-md); padding: 16px 12px;
+      text-align: center; transition: var(--transition);
+      position: relative;
+    }
+    .achievement-badge:hover { border-color: var(--border); transform: translateY(-2px); }
+    .achievement-badge.unlocked { border-color: rgba(108,99,255,0.35); background: rgba(108,99,255,0.08); }
+    .achievement-badge.locked { opacity: 0.45; filter: grayscale(0.7); }
+    .badge-icon { font-size: 2rem; margin-bottom: 8px; }
+    .badge-name { font-size: 0.75rem; font-weight: 600; margin-bottom: 3px; }
+    .badge-desc { font-size: 0.65rem; color: var(--text-muted); }
+    .badge-locked-overlay {
+      position: absolute; top: 6px; right: 6px;
+      font-size: 0.7rem; color: var(--text-muted);
+    }
+
+    /* Stats summary strip */
+    .community-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 700px) { .community-stats { grid-template-columns: repeat(2, 1fr); } }
+    .cs-card {
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg); padding: 20px; text-align: center;
+      transition: var(--transition);
+    }
+    .cs-card:hover { transform: translateY(-2px); border-color: var(--border); }
+    .cs-num { font-size: 1.8rem; font-weight: 800; font-family: var(--font-display); color: var(--primary-light); }
+    .cs-label { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+
+    .skill-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+    .skill-cloud-tag {
+      padding: 6px 14px; border-radius: var(--radius-full);
+      font-size: 0.78rem; font-weight: 500;
+      border: 1px solid rgba(108,99,255,0.25);
+      background: rgba(108,99,255,0.08); color: var(--primary-light);
+      transition: var(--transition); cursor: default;
+    }
+    .skill-cloud-tag:hover { background: rgba(108,99,255,0.2); }
+    .skill-cloud-tag.large { font-size: 0.95rem; padding: 8px 18px; }
+    .skill-cloud-tag.small { font-size: 0.65rem; padding: 4px 10px; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div id="toast-container"></div>
+  <div id="main-navbar"></div>
+
+  <div class="page-wrapper">
+    <div class="container">
+      <!-- Hero -->
+      <div class="lb-hero animate-fade-up">
+        <h1 class="gradient-text">🏆 Leaderboard & Community</h1>
+        <p>Top skill exchangers, trending skills, and your achievement badges</p>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px">
+          <span id="lb-last-updated" style="font-size:0.78rem;color:var(--text-muted)">Updated just now</span>
+        </div>
+      </div>
+
+      <!-- Community Stats -->
+      <div class="community-stats animate-fade-up">
+        <div class="cs-card">
+          <div class="cs-num" id="cs-users">–</div>
+          <div class="cs-label">👥 Total Members</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-num" id="cs-exchanges">–</div>
+          <div class="cs-label">🤝 Exchanges Made</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-num" id="cs-skills">–</div>
+          <div class="cs-label">🎯 Unique Skills</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-num" id="cs-messages">–</div>
+          <div class="cs-label">💬 Messages Sent</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="lb-tabs">
+        <button class="lb-tab active" data-tab="top-users">👑 Top Members</button>
+        <button class="lb-tab" data-tab="achievements">🏅 My Achievements</button>
+        <button class="lb-tab" data-tab="trending">🔥 Trending Skills</button>
+        <button class="lb-tab" data-tab="activity">📊 My Activity</button>
+      </div>
+
+      <!-- Tab: Top Users -->
+      <div id="tab-top-users">
+        <div class="lb-grid">
+          <!-- Left: Leaderboard -->
+          <div>
+            <!-- Podium (Top 3) -->
+            <div class="card mb-3">
+              <div style="text-align:center;margin-bottom:20px">
+                <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em">Top Exchangers This Month</div>
+              </div>
+              <div class="podium-row" id="podium-row">
+                <div style="text-align:center;color:var(--text-muted);font-size:0.875rem">Loading podium...</div>
+              </div>
+            </div>
+
+            <!-- Full List -->
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <span style="font-weight:700;font-size:1rem">Full Rankings</span>
+                <select class="sort-select" id="lb-sort" style="font-size:0.8rem;padding:6px 10px">
+                  <option value="exchanges">By Exchanges</option>
+                  <option value="rating">By Rating</option>
+                  <option value="skills">By Skills</option>
+                  <option value="recent">Recently Active</option>
+                </select>
+              </div>
+              <div id="lb-list">
+                <div style="text-align:center;padding:40px;color:var(--text-muted)">Loading rankings...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Sidebar -->
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <!-- My Rank -->
+            <div class="card" id="my-rank-card" style="text-align:center">
+              <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px">My Ranking</div>
+              <div style="font-size:3.5rem;font-weight:800;font-family:var(--font-display);color:var(--primary-light)" id="my-rank-num">–</div>
+              <div style="font-size:0.875rem;color:var(--text-secondary)" id="my-rank-label">out of – members</div>
+              <div style="margin-top:16px" id="my-rank-score-box"></div>
+            </div>
+
+            <!-- Quick Skill Cloud -->
+            <div class="card">
+              <div style="font-weight:600;font-size:0.9rem;margin-bottom:14px">🔥 Trending Skills</div>
+              <div class="skill-cloud" id="skill-cloud-mini"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Achievements -->
+      <div id="tab-achievements" class="hidden">
+        <div class="grid-2" style="gap:28px">
+          <!-- Badges -->
+          <div class="card">
+            <h3 style="margin-bottom:8px;font-size:1.05rem">🏅 Achievement Badges</h3>
+            <p style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:20px">Earn badges by reaching milestones on the platform</p>
+            <div class="badge-grid" id="badge-grid">
+              <div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-muted)">Loading...</div>
+            </div>
+          </div>
+          <!-- Progress towards next badge -->
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div class="card">
+              <h3 style="margin-bottom:16px;font-size:1.05rem">📈 Progress Tracker</h3>
+              <div id="progress-tracker">
+                <div style="text-align:center;padding:20px;color:var(--text-muted)">Loading progress...</div>
+              </div>
+            </div>
+            <div class="card">
+              <h3 style="margin-bottom:16px;font-size:1.05rem">⚡ XP & Level</h3>
+              <div id="xp-section">
+                <div style="text-align:center;padding:20px;color:var(--text-muted)">Loading XP...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Trending Skills -->
+      <div id="tab-trending" class="hidden">
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="margin-bottom:6px;font-size:1.05rem">🎁 Most Offered Skills</h3>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:20px">Skills people are ready to teach</p>
+            <div id="top-offered-list"></div>
+          </div>
+          <div class="card">
+            <h3 style="margin-bottom:6px;font-size:1.05rem">🎯 Most Wanted Skills</h3>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:20px">Skills people are eager to learn</p>
+            <div id="top-wanted-list"></div>
+          </div>
+        </div>
+        <div class="card mt-3">
+          <h3 style="margin-bottom:16px;font-size:1.05rem">☁️ Full Skill Cloud</h3>
+          <div class="skill-cloud" id="full-skill-cloud"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Activity -->
+      <div id="tab-activity" class="hidden">
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="margin-bottom:16px;font-size:1.05rem">📅 My Exchange History</h3>
+            <div id="exchange-history">
+              <div style="text-align:center;padding:24px;color:var(--text-muted)">Loading history...</div>
+            </div>
+          </div>
+          <div class="card">
+            <h3 style="margin-bottom:6px;font-size:1.05rem">📊 Activity (Last 7 Days)</h3>
+            <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:16px">Requests sent & received</p>
+            <div class="activity-chart">
+              <div class="activity-bars" id="activity-bars"></div>
+              <div class="activity-labels" id="activity-labels"></div>
+            </div>
+            <div style="margin-top:20px" id="activity-summary"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="utils.js"></script>
+  <script>
+    let currentUser = null;
+    let myProfile = null;
+    let allUsers = [];
+    let allRequests = [];
+
+    requireAuth(async (user) => {
+      currentUser = user;
+      await renderNavbar('leaderboard');
+      await Promise.all([loadMyProfile(), loadData()]);
+    });
+
+    async function loadMyProfile() {
+      const snap = await db.collection('users').doc(currentUser.uid).get();
+      myProfile = snap.data() || {};
+    }
+
+    async function loadData() {
+      try {
+        const [usersSnap, requestsSnap] = await Promise.all([
+          db.collection('users').get(),
+          db.collection('requests').get()
+        ]);
+        allUsers = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+        allRequests = requestsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAll();
+      } catch (err) {
+        showToast('Error loading data: ' + err.message, 'error');
+      }
+    }
+
+    function computeUserScore(user) {
+      const acceptedExch = allRequests.filter(r =>
+        (r.fromUid === user.uid || r.toUid === user.uid) && r.status === 'accepted'
+      ).length;
+      const skillCount = ((user.skillsOffered || []).length + (user.skillsWanted || []).length);
+      const ratingBoost = (user.rating || 0) * 5;
+      return (acceptedExch * 10) + skillCount + Math.round(ratingBoost);
+    }
+
+    function renderAll() {
+      // Enrich users with score
+      const ranked = allUsers
+        .map(u => ({ ...u, score: computeUserScore(u) }))
+        .sort((a, b) => b.score - a.score);
+
+      renderCommunityStats(ranked);
+      renderPodium(ranked);
+      renderLbList(ranked, 'exchanges');
+      renderMyRank(ranked);
+      renderSkillCloud(ranked);
+      renderAchievements();
+      renderTrending(ranked);
+      renderActivity();
+
+      // Tabs
+      document.querySelectorAll('.lb-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const tab = btn.dataset.tab;
+          ['top-users', 'achievements', 'trending', 'activity'].forEach(t => {
+            document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+          });
+        });
+      });
+
+      document.getElementById('lb-sort').addEventListener('change', e => {
+        renderLbList(ranked, e.target.value);
+      });
+    }
+
+    function renderCommunityStats(ranked) {
+      document.getElementById('cs-users').textContent = allUsers.length;
+      const exchangeCount = allRequests.filter(r => r.status === 'accepted').length;
+      document.getElementById('cs-exchanges').textContent = exchangeCount;
+      // Unique skills
+      const allSkills = new Set();
+      allUsers.forEach(u => {
+        (u.skillsOffered || []).forEach(s => allSkills.add(s.toLowerCase()));
+        (u.skillsWanted || []).forEach(s => allSkills.add(s.toLowerCase()));
+      });
+      document.getElementById('cs-skills').textContent = allSkills.size;
+      document.getElementById('cs-messages').textContent = Math.floor(exchangeCount * 8.3) || 0; // estimated
+    }
+
+    function renderPodium(ranked) {
+      const top3 = ranked.slice(0, 3);
+      if (top3.length === 0) return;
+      const podiumEl = document.getElementById('podium-row');
+      const order = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
+      const classes = top3.length >= 3 ? ['podium-2', 'podium-1', 'podium-3'] : ['podium-1'];
+      const crowns = ['🥈', '👑', '🥉'];
+      podiumEl.innerHTML = order.map((u, i) => {
+        const cls = classes[i];
+        const crown = crowns[i];
+        const initials = getInitials(u.displayName || u.email || '?');
+        return `
+          <div class="podium-item ${cls}">
+            <div class="podium-avatar" style="position:relative">
+              <span class="podium-crown">${crown}</span>
+              ${u.photoURL ? `<img src="${u.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : initials}
+            </div>
+            <div class="podium-name">${u.displayName || 'Anonymous'}</div>
+            <div class="podium-score">${u.score} pts</div>
+            <div class="podium-block">${cls === 'podium-1' ? '1' : cls === 'podium-2' ? '2' : '3'}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderLbList(ranked, sortBy) {
+      let sorted = [...ranked];
+      if (sortBy === 'rating') sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      else if (sortBy === 'skills') sorted.sort((a, b) => ((b.skillsOffered||[]).length + (b.skillsWanted||[]).length) - ((a.skillsOffered||[]).length + (a.skillsWanted||[]).length));
+      else if (sortBy === 'recent') sorted.sort((a, b) => (b.updatedAt?.toDate()?.getTime() || 0) - (a.updatedAt?.toDate()?.getTime() || 0));
+
+      const el = document.getElementById('lb-list');
+      el.innerHTML = sorted.map((u, i) => {
+        const rank = i + 1;
+        const isMe = u.uid === currentUser.uid;
+        const initials = getInitials(u.displayName || '?');
+        const skillSub = `${(u.skillsOffered||[]).length} teaching · ${(u.skillsWanted||[]).length} learning`;
+        let scoreDisplay = '';
+        if (sortBy === 'rating') scoreDisplay = `${(u.rating||0).toFixed(1)} ★`;
+        else if (sortBy === 'skills') scoreDisplay = `${(u.skillsOffered||[]).length + (u.skillsWanted||[]).length} skills`;
+        else scoreDisplay = `${u.score} pts`;
+
+        return `
+          <div class="lb-row ${isMe ? 'is-me' : ''}" onclick="window.location.href='browse.html?user=${u.uid}'">
+            <div class="lb-rank ${rank <= 3 ? 'top3' : ''}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : '#' + rank}</div>
+            <div class="user-card-avatar" style="width:36px;height:36px;font-size:0.85rem;border-radius:50%;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:600">
+              ${u.photoURL ? `<img src="${u.photoURL}" style="width:100%;height:100%;object-fit:cover">` : initials}
+            </div>
+            <div class="lb-info">
+              <div class="lb-user-name">${u.displayName || 'Anonymous'} ${isMe ? '<span class="badge badge-primary" style="font-size:0.6rem">YOU</span>' : ''}</div>
+              <div class="lb-user-sub">${skillSub}</div>
+            </div>
+            <div class="lb-score-col">${scoreDisplay}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMyRank(ranked) {
+      const myIdx = ranked.findIndex(u => u.uid === currentUser.uid);
+      const el = document.getElementById('my-rank-num');
+      const label = document.getElementById('my-rank-label');
+      const box = document.getElementById('my-rank-score-box');
+      if (myIdx === -1) { el.textContent = '–'; return; }
+      el.textContent = '#' + (myIdx + 1);
+      label.textContent = `out of ${ranked.length} members`;
+      const myData = ranked[myIdx];
+      box.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--bg-card-3);border-radius:var(--radius-md);padding:10px;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--primary-light)">${myData.score}</div>
+            <div style="font-size:0.68rem;color:var(--text-muted)">Total Points</div>
+          </div>
+          <div style="background:var(--bg-card-3);border-radius:var(--radius-md);padding:10px;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--warning)">${(myData.rating||0).toFixed(1)}★</div>
+            <div style="font-size:0.68rem;color:var(--text-muted)">Rating</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSkillCloud(ranked) {
+      const skillFreq = {};
+      ranked.forEach(u => {
+        (u.skillsOffered || []).forEach(s => { skillFreq[s] = (skillFreq[s] || 0) + 2; });
+        (u.skillsWanted || []).forEach(s => { skillFreq[s] = (skillFreq[s] || 0) + 1; });
+      });
+      const top8 = Object.entries(skillFreq).sort((a,b) => b[1]-a[1]).slice(0, 8);
+      const maxF = top8[0]?.[1] || 1;
+      document.getElementById('skill-cloud-mini').innerHTML = top8.map(([s, f]) => {
+        const size = f / maxF > 0.7 ? 'large' : f / maxF > 0.4 ? '' : 'small';
+        return `<span class="skill-cloud-tag ${size}">${s}</span>`;
+      }).join('');
+    }
+
+    function renderAchievements() {
+      const acceptedExch = allRequests.filter(r =>
+        (r.fromUid === currentUser.uid || r.toUid === currentUser.uid) && r.status === 'accepted'
+      ).length;
+      const sentRequests = allRequests.filter(r => r.fromUid === currentUser.uid).length;
+      const skillCount = (myProfile.skillsOffered || []).length + (myProfile.skillsWanted || []).length;
+      const rating = myProfile.rating || 0;
+
+      const badges = [
+        { icon: '🌱', name: 'First Steps', desc: 'Complete your profile', unlocked: !!(myProfile.displayName && myProfile.bio), criteria: 'Profile complete' },
+        { icon: '🤝', name: 'First Exchange', desc: 'Complete your first skill exchange', unlocked: acceptedExch >= 1, criteria: `${acceptedExch}/1 exchanges` },
+        { icon: '🔥', name: 'Hot Streak', desc: 'Complete 5 skill exchanges', unlocked: acceptedExch >= 5, criteria: `${acceptedExch}/5 exchanges` },
+        { icon: '🎯', name: 'Skill Seeker', desc: 'Add 5+ skills to your profile', unlocked: skillCount >= 5, criteria: `${skillCount}/5 skills` },
+        { icon: '⭐', name: 'Star Teacher', desc: 'Achieve a 4+ star rating', unlocked: rating >= 4, criteria: `${rating.toFixed(1)}/4.0 rating` },
+        { icon: '📨', name: 'Connector', desc: 'Send 10 skill requests', unlocked: sentRequests >= 10, criteria: `${sentRequests}/10 requests` },
+        { icon: '💎', name: 'Elite Exchanger', desc: 'Complete 20 successful exchanges', unlocked: acceptedExch >= 20, criteria: `${acceptedExch}/20 exchanges` },
+        { icon: '🏆', name: 'Legend', desc: 'Reach top 3 on the leaderboard', unlocked: false, criteria: 'Reach top 3' },
+        { icon: '🌍', name: 'Community Pillar', desc: 'Help 10 different learners', unlocked: false, criteria: 'Coming soon' },
+      ];
+
+      document.getElementById('badge-grid').innerHTML = badges.map(b => `
+        <div class="achievement-badge ${b.unlocked ? 'unlocked' : 'locked'}" title="${b.desc}">
+          ${!b.unlocked ? '<div class="badge-locked-overlay">🔒</div>' : ''}
+          <div class="badge-icon">${b.icon}</div>
+          <div class="badge-name">${b.name}</div>
+          <div class="badge-desc">${b.criteria}</div>
+        </div>
+      `).join('');
+
+      // XP
+      const xp = acceptedExch * 100 + sentRequests * 10 + skillCount * 20 + Math.round(rating * 50);
+      const level = Math.floor(xp / 300) + 1;
+      const xpToNext = level * 300;
+      const xpProgress = ((xp % 300) / 300) * 100;
+      document.getElementById('xp-section').innerHTML = `
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:3rem;font-weight:800;font-family:var(--font-display);color:var(--primary-light)">Lv. ${level}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">${xp} XP total</div>
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">
+            <span>Level ${level}</span><span>${xp % 300} / 300 XP to Level ${level+1}</span>
+          </div>
+          <div style="height:8px;background:var(--border-light);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${xpProgress}%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:4px;transition:width 1s ease"></div>
+          </div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-align:center">XP earned from exchanges, skills & ratings</div>
+      `;
+
+      // Progress tracker
+      const goals = [
+        { label: '🤝 Exchanges', current: acceptedExch, target: 5 },
+        { label: '📨 Requests Sent', current: sentRequests, target: 10 },
+        { label: '🎯 Skills Added', current: skillCount, target: 8 },
+        { label: '⭐ Rating Goal', current: Math.round(rating * 10), target: 40 },
+      ];
+      document.getElementById('progress-tracker').innerHTML = goals.map(g => {
+        const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+        return `
+          <div style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:6px">
+              <span style="font-weight:500">${g.label}</span>
+              <span style="color:var(--text-muted)">${g.current} / ${g.target}</span>
+            </div>
+            <div style="height:6px;background:var(--border-light);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:3px;transition:width 1s ease"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTrending(ranked) {
+      const offeredFreq = {}, wantedFreq = {};
+      ranked.forEach(u => {
+        (u.skillsOffered || []).forEach(s => { const k = s.toLowerCase(); offeredFreq[k] = (offeredFreq[k] || 0) + 1; });
+        (u.skillsWanted || []).forEach(s => { const k = s.toLowerCase(); wantedFreq[k] = (wantedFreq[k] || 0) + 1; });
+      });
+
+      const topOff = Object.entries(offeredFreq).sort((a,b) => b[1]-a[1]).slice(0, 10);
+      const topWant = Object.entries(wantedFreq).sort((a,b) => b[1]-a[1]).slice(0, 10);
+
+      const renderSkillBar = (arr, color) => arr.map(([s, f]) => `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="flex:1;font-size:0.85rem;font-weight:500;text-transform:capitalize">${s}</div>
+          <div style="width:100px;height:6px;background:var(--border-light);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${Math.round(f/arr[0][1]*100)}%;background:${color};border-radius:3px"></div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-muted);min-width:20px;text-align:right">${f}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('top-offered-list').innerHTML = renderSkillBar(topOff, 'linear-gradient(90deg,var(--primary),var(--primary-light))') || '<span style="color:var(--text-muted)">No data yet.</span>';
+      document.getElementById('top-wanted-list').innerHTML = renderSkillBar(topWant, 'linear-gradient(90deg,var(--accent),#FF8FA3)') || '<span style="color:var(--text-muted)">No data yet.</span>';
+
+      const allFreq = {};
+      ranked.forEach(u => {
+        (u.skillsOffered || []).concat(u.skillsWanted || []).forEach(s => {
+          const k = s.toLowerCase(); allFreq[k] = (allFreq[k] || 0) + 1;
+        });
+      });
+      const allSorted = Object.entries(allFreq).sort((a,b) => b[1]-a[1]).slice(0, 30);
+      const maxF = allSorted[0]?.[1] || 1;
+      document.getElementById('full-skill-cloud').innerHTML = allSorted.map(([s, f]) => {
+        const size = f/maxF > 0.7 ? 'large' : f/maxF > 0.35 ? '' : 'small';
+        return `<span class="skill-cloud-tag ${size}">${s}</span>`;
+      }).join('');
+    }
+
+    function renderActivity() {
+      const mine = allRequests.filter(r => r.fromUid === currentUser.uid || r.toUid === currentUser.uid);
+      const accepted = mine.filter(r => r.status === 'accepted');
+      const pending = mine.filter(r => r.status === 'pending');
+
+      // History
+      const sortedMine = [...mine].sort((a, b) => (b.createdAt?.toDate()?.getTime() || 0) - (a.createdAt?.toDate()?.getTime() || 0));
+      document.getElementById('exchange-history').innerHTML = sortedMine.length ? sortedMine.slice(0, 8).map(r => {
+        const isSender = r.fromUid === currentUser.uid;
+        const partner = isSender ? r.toName : r.fromName;
+        const statusColors = { pending: 'warning', accepted: 'success', rejected: 'danger' };
+        return `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-light)">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:600;flex-shrink:0">
+              ${getInitials(partner || '?')}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.85rem;font-weight:500">${isSender ? 'You → ' : ''}${partner || 'Unknown'}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted)">${r.skillOffered} ↔ ${r.skillWanted}</div>
+            </div>
+            <span class="badge badge-${statusColors[r.status] || 'primary'}">${r.status}</span>
+          </div>
+        `;
+      }).join('') : '<div style="text-align:center;padding:24px;color:var(--text-muted)">No exchange history yet.</div>';
+
+      // Activity bars (last 7 days)
+      const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const today = new Date(); today.setHours(23, 59, 59);
+      const counts = Array(7).fill(0);
+      mine.forEach(r => {
+        if (!r.createdAt) return;
+        const d = r.createdAt.toDate();
+        const diff = Math.floor((today - d) / 86400000);
+        if (diff < 7) counts[6 - diff]++;
+      });
+      const maxC = Math.max(...counts, 1);
+      document.getElementById('activity-bars').innerHTML = counts.map((c, i) => `
+        <div class="activity-bar" style="height:${Math.max(4, (c/maxC)*76)}px" data-tip="${days[(new Date().getDay()+i-6+7)%7]}: ${c} activities"></div>
+      `).join('');
+      const dayLabels = Array(7).fill(0).map((_, i) => days[(new Date().getDay()+i-6+7)%7]);
+      document.getElementById('activity-labels').innerHTML = dayLabels.map(d => `<span class="activity-label">${d}</span>`).join('');
+
+      document.getElementById('activity-summary').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          ${[['Total', mine.length, '📊'],['Accepted', accepted.length, '✅'],['Pending', pending.length, '⏳']].map(([l,v,icon]) => `
+            <div style="background:var(--bg-card-3);border-radius:var(--radius-md);padding:12px;text-align:center">
+              <div style="font-size:0.9rem">${icon}</div>
+              <div style="font-size:1.3rem;font-weight:800;color:var(--primary-light)">${v}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">${l}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+  </script>
+  <style>
+    .sort-select {
+      background: var(--bg-card-3); border: 1px solid var(--border-light);
+      border-radius: var(--radius-md); color: var(--text-primary);
+      font-size: 0.85rem; padding: 8px 12px; outline: none; cursor: pointer;
+      font-family: var(--font-sans);
+    }
+    .animate-fade-up { animation: fadeUp 0.5s ease forwards; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</body>
+</html>

@@ -113,6 +113,18 @@ function redirectIfAuth() {
   });
 }
 
+// ---- Dark Mode Toggle ----
+function initDarkMode() {
+  const btn = document.getElementById('dark-toggle-btn');
+  const isDark = localStorage.getItem('darkMode') === 'enabled';
+  if (isDark) document.body.classList.add('dark-mode');
+  
+  btn?.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode') ? 'enabled' : null);
+  });
+}
+
 // ---- Render Navbar (shared) ----
 async function renderNavbar(activeTab) {
   const navEl = document.getElementById('main-navbar');
@@ -139,10 +151,14 @@ async function renderNavbar(activeTab) {
           `).join('')}
         </ul>
         <div class="nav-actions">
-          <button class="dark-toggle" id="dark-toggle-btn" title="Coming Soon">🌙</button>
+          <button class="dark-toggle" id="dark-toggle-btn">🌙</button>
           <div style="position:relative">
-            <div class="nav-avatar" id="nav-avatar-btn" title="Profile">?</div>
+            <div class="nav-avatar" id="nav-avatar-btn">?</div>
             <div id="notif-dot" class="notif-dot hidden"></div>
+            <div id="notif-dropdown" class="notif-dropdown hidden">
+              <div class="notif-header">Notifications</div>
+              <div id="notif-list"></div>
+            </div>
           </div>
           <button class="btn btn-sm btn-secondary" id="logout-btn">Sign Out</button>
         </div>
@@ -150,48 +166,49 @@ async function renderNavbar(activeTab) {
     </nav>
   `;
 
-  // Populate avatar
+  initDarkMode();
+
   const user = auth.currentUser;
   if (user) {
     const avatarEl = document.getElementById('nav-avatar-btn');
-    if (avatarEl) {
-      try {
-        const snap = await db.collection('users').doc(user.uid).get();
-        const data = snap.data() || {};
-        if (data.photoURL) {
-          avatarEl.innerHTML = `<img src="${data.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-        } else {
-          avatarEl.textContent = getInitials(data.displayName || user.email);
-        }
-      } catch (e) {
-        avatarEl.textContent = getInitials(user.email);
+    const notifBtn = document.getElementById('nav-avatar-btn');
+    const notifDropdown = document.getElementById('notif-dropdown');
+
+    // Avatar logic
+    try {
+      const snap = await db.collection('users').doc(user.uid).get();
+      const data = snap.data() || {};
+      if (data.photoURL) {
+        avatarEl.innerHTML = `<img src="${data.photoURL}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      } else {
+        avatarEl.textContent = getInitials(data.displayName || user.email);
       }
-    }
-    // Check pending requests for notification dot
+    } catch (e) { avatarEl.textContent = getInitials(user.email); }
+
+    // Notifications
+    notifBtn.addEventListener('click', () => notifDropdown.classList.toggle('hidden'));
     db.collection('requests')
       .where('toUid', '==', user.uid)
       .where('status', '==', 'pending')
       .onSnapshot(snap => {
         const dot = document.getElementById('notif-dot');
-        if (dot) dot.classList.toggle('hidden', snap.empty);
+        const list = document.getElementById('notif-list');
+        dot.classList.toggle('hidden', snap.empty);
+        list.innerHTML = snap.empty ? '<div class="p-2">No new requests</div>' : '';
+        snap.forEach(doc => {
+          const req = doc.data();
+          list.innerHTML += `<div class="notif-item">New request from ${req.fromName}</div>`;
+        });
       });
   }
 
-  // Logout
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     await auth.signOut();
     window.location.href = 'login.html';
   });
 
-  // Avatar → Profile
-  document.getElementById('nav-avatar-btn')?.addEventListener('click', () => {
-    window.location.href = 'profile.html';
-  });
-
-  // Burger menu
   document.getElementById('burger-btn')?.addEventListener('click', () => {
-    const navLinks = document.getElementById('nav-links');
-    navLinks?.classList.toggle('open');
+    document.getElementById('nav-links')?.classList.toggle('open');
   });
 }
 
