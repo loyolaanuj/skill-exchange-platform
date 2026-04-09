@@ -232,7 +232,10 @@
             <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();respondReq('${n.refId}','rejected')">✕ Decline</button>
           `;
         } else if (n.type === 'accepted') {
-          actions = `<a href="chat.html?with=${n.fromUid}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">💬 Open Chat</a>`;
+          actions = `
+            <a href="chat.html?with=${n.fromUid}" class="btn btn-primary btn-sm" onclick="event.stopPropagation()">💬 Open Chat</a>
+            <a href="schedule.html?partner=${n.fromUid}" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()">📅 Schedule</a>
+          `;
         }
 
         return `
@@ -256,26 +259,62 @@
         await db.collection('requests').doc(reqId).update({ status, read: true });
         if (status === 'accepted') {
           const chatId = getChatId(currentUser.uid, reqData.fromUid);
+          const mySnap = await db.collection('users').doc(currentUser.uid).get();
+          const myData = mySnap.data() || {};
           await db.collection('chats').doc(chatId).set({
             participants: [currentUser.uid, reqData.fromUid],
             participantNames: {
-              [currentUser.uid]: (await db.collection('users').doc(currentUser.uid).get()).data()?.displayName || currentUser.email,
+              [currentUser.uid]: myData.displayName || currentUser.email,
               [reqData.fromUid]: reqData.fromName
             },
             participantPhotos: {
-              [currentUser.uid]: (await db.collection('users').doc(currentUser.uid).get()).data()?.photoURL || '',
+              [currentUser.uid]: myData.photoURL || '',
               [reqData.fromUid]: reqData.fromPhoto || ''
             },
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             lastMessage: '', lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
           }, { merge: true });
-          showToast('Request accepted! You can now chat. 🎉', 'success');
+
+          // Show action banner
+          showAcceptBanner(reqData.fromUid, reqData.fromName);
         } else {
           showToast('Request declined.', 'info');
         }
       } catch (err) {
         showToast('Error: ' + err.message, 'error');
       }
+    }
+
+    function showAcceptBanner(partnerUid, partnerName) {
+      document.getElementById('accept-banner')?.remove();
+      const banner = document.createElement('div');
+      banner.id = 'accept-banner';
+      banner.style.cssText = `
+        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+        background: var(--bg-card-2); border: 1px solid rgba(108,99,255,0.4);
+        border-radius: var(--radius-xl); padding: 20px 28px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 9999;
+        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+        animation: bannerUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        max-width: 520px; width: calc(100% - 48px);
+      `;
+      banner.innerHTML = `
+        <style>@keyframes bannerUp {
+          from { transform: translateX(-50%) translateY(80px); opacity: 0; }
+          to   { transform: translateX(-50%) translateY(0);   opacity: 1; }
+        }</style>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:0.95rem">🎉 Request accepted!</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:2px">Connected with <b>${partnerName}</b> — what would you like to do?</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap">
+          <a href="chat.html?with=${partnerUid}" class="btn btn-primary btn-sm">💬 Open Chat</a>
+          <a href="schedule.html?partner=${partnerUid}" class="btn btn-secondary btn-sm">📅 Schedule Meeting</a>
+          <button onclick="document.getElementById('accept-banner').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;padding:0 4px">✕</button>
+        </div>
+      `;
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 15000);
     }
 
     function handleNotifClick(id, fromUid, type) {

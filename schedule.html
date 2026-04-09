@@ -227,6 +227,14 @@
       renderCalendar();
       updateTZ();
       setInterval(updateTZ, 30000);
+      // Pre-select partner from URL param (e.g. schedule.html?partner=uid)
+      const params = new URLSearchParams(window.location.search);
+      const prePartner = params.get('partner');
+      if (prePartner) {
+        const sel = document.getElementById('session-partner');
+        if (sel) sel.value = prePartner;
+        updateBookBtn();
+      }
     });
 
     function updateTZ() {
@@ -241,27 +249,48 @@
 
     async function loadPartners() {
       try {
-        const snap = await db.collection('requests')
+        const partnerIds = new Set();
+        const partnerMeta = {}; // uid -> { displayName, email }
+
+        // Query 1: requests where *I* am the sender
+        const fromSnap = await db.collection('requests')
+          .where('fromUid', '==', currentUser.uid)
           .where('status', '==', 'accepted')
           .get();
-        const partnerIds = new Set();
-        snap.docs.forEach(d => {
+        fromSnap.docs.forEach(d => {
           const data = d.data();
-          if (data.fromUid === currentUser.uid) partnerIds.add(data.toUid);
-          else if (data.toUid === currentUser.uid) partnerIds.add(data.fromUid);
+          partnerIds.add(data.toUid);
+          partnerMeta[data.toUid] = { displayName: data.toName, email: '' };
         });
-        const partnerSnaps = await Promise.all([...partnerIds].map(id => db.collection('users').doc(id).get()));
-        partners = partnerSnaps.filter(s => s.exists).map(s => ({ uid: s.id, ...s.data() }));
+
+        // Query 2: requests where *I* am the recipient
+        const toSnap = await db.collection('requests')
+          .where('toUid', '==', currentUser.uid)
+          .where('status', '==', 'accepted')
+          .get();
+        toSnap.docs.forEach(d => {
+          const data = d.data();
+          partnerIds.add(data.fromUid);
+          partnerMeta[data.fromUid] = { displayName: data.fromName, email: '' };
+        });
+
+        // Build partners list from accumulated IDs
+        partners = [...partnerIds].map(uid => ({
+          uid,
+          displayName: partnerMeta[uid]?.displayName || null,
+          email: partnerMeta[uid]?.email || ''
+        }));
 
         const sel = document.getElementById('session-partner');
         if (partners.length === 0) {
-          sel.innerHTML = '<option value="">No accepted partners yet</option>';
+          sel.innerHTML = '<option value="">No accepted partners yet — accept a request first!</option>';
         } else {
           sel.innerHTML = '<option value="">Select partner...</option>' +
             partners.map(p => `<option value="${p.uid}">${p.displayName || p.email}</option>`).join('');
         }
       } catch (err) {
         console.error('loadPartners error:', err);
+        showToast('Could not load partners: ' + err.message, 'error');
       }
     }
 
