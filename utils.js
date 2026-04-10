@@ -53,20 +53,25 @@ function getInitials(name) {
 // ---- Format Firestore Timestamp ----
 function formatTime(timestamp) {
   if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const now = new Date();
-  const diff = now - date;
-  if (diff < 60000) return 'Just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    if (diff < 0 || isNaN(diff)) return 'Just now';
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch (e) { return ''; }
 }
 
 // ---- Format Chat Time ----
 function formatChatTime(timestamp) {
   if (!timestamp) return '';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  try {
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch (e) { return ''; }
 }
 
 // ---- Parse Skill Input ----
@@ -92,9 +97,12 @@ function debounce(fn, delay = 300) {
 }
 
 // ---- Auth Guard: Redirect to Login if Not Authenticated ----
+// FIXED: Uses unsubscribe() so it only fires ONCE — prevents duplicate
+//        listenToPosts / setupComposer / setupFilters calls on token refresh.
 function requireAuth(callback) {
   showLoader();
-  auth.onAuthStateChanged(user => {
+  const unsubscribe = auth.onAuthStateChanged(user => {
+    unsubscribe(); // ← one-shot: stop listening after first response
     if (!user) {
       window.location.href = 'login.html';
       return;
@@ -105,8 +113,10 @@ function requireAuth(callback) {
 }
 
 // ---- Redirect to Feed if Already Authenticated ----
+// FIXED: Also one-shot so it doesn't redirect multiple times
 function redirectIfAuth() {
-  auth.onAuthStateChanged(user => {
+  const unsubscribe = auth.onAuthStateChanged(user => {
+    unsubscribe();
     if (user) {
       window.location.href = 'feed.html';
     }
@@ -118,7 +128,7 @@ function initDarkMode() {
   const btn = document.getElementById('dark-toggle-btn');
   const isDark = localStorage.getItem('darkMode') === 'enabled';
   if (isDark) document.body.classList.add('dark-mode');
-  
+
   btn?.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('darkMode', document.body.classList.contains('dark-mode') ? 'enabled' : null);
@@ -126,6 +136,8 @@ function initDarkMode() {
 }
 
 // ---- Render Navbar (shared) ----
+// FIXED: document-level click listener added only once via a flag stored on
+//        the document itself, so multiple renderNavbar() calls don't stack listeners.
 async function renderNavbar(activeTab) {
   const navEl = document.getElementById('main-navbar');
   if (!navEl) return;
@@ -137,7 +149,7 @@ async function renderNavbar(activeTab) {
     { href: 'chat.html',          label: '💬 Chat',          id: 'chat' },
     { href: 'leaderboard.html',   label: '🏆 Leaderboard',  id: 'leaderboard' },
     { href: 'schedule.html',      label: '📅 Schedule',      id: 'schedule' },
-    { href: 'notifications.html', label: '🔔 Notifications', id: 'notifications' },
+    { href: 'notifications.html', label: '🔔 Alerts',        id: 'notifications' },
     { href: 'profile.html',       label: '👤 Profile',       id: 'profile' },
   ];
 
@@ -158,8 +170,8 @@ async function renderNavbar(activeTab) {
           <button class="dark-toggle" id="dark-toggle-btn">🌙</button>
           <div style="position:relative">
             <div class="nav-avatar" id="nav-avatar-btn" title="Notifications" style="cursor:pointer;position:relative">?</div>
-            <div id="navbar-notif-dot" style="position:absolute;top:0;right:0;width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid var(--bg-nav,#0f0f1a);display:none"></div>
-            <div id="navbar-notif-dropdown" style="position:absolute;top:52px;right:0;min-width:280px;background:var(--bg-card-2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;overflow:hidden;display:none">
+            <div id="navbar-notif-dot" style="position:absolute;top:0;right:0;width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid var(--bg-dark,#0D0D1A);display:none;pointer-events:none;z-index:2"></div>
+            <div id="navbar-notif-dropdown" style="position:absolute;top:52px;right:0;min-width:280px;background:var(--bg-card-2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9999;overflow:hidden;display:none">
               <div style="padding:12px 16px;border-bottom:1px solid var(--border-light);font-size:0.85rem;font-weight:700">🔔 Notifications</div>
               <div id="navbar-notif-inner" style="max-height:280px;overflow-y:auto"></div>
               <div style="padding:10px 16px;border-top:1px solid var(--border-light);text-align:center">
@@ -177,12 +189,12 @@ async function renderNavbar(activeTab) {
 
   const user = auth.currentUser;
   if (user) {
-    const avatarEl = document.getElementById('nav-avatar-btn');
-    const notifDropdown = document.getElementById('navbar-notif-dropdown');
-    const notifDot = document.getElementById('navbar-notif-dot');
-    const notifInner = document.getElementById('navbar-notif-inner');
+    const avatarEl         = document.getElementById('nav-avatar-btn');
+    const notifDropdown    = document.getElementById('navbar-notif-dropdown');
+    const notifDot         = document.getElementById('navbar-notif-dot');
+    const notifInner       = document.getElementById('navbar-notif-inner');
 
-    // Avatar logic
+    // ── Avatar ──────────────────────────────────────────────────
     try {
       const snap = await db.collection('users').doc(user.uid).get();
       const data = snap.data() || {};
@@ -193,18 +205,24 @@ async function renderNavbar(activeTab) {
       }
     } catch (e) { avatarEl.textContent = getInitials(user.email); }
 
-    // Toggle notification dropdown
-    avatarEl.addEventListener('click', (e) => {
+    // ── Dropdown toggle ─────────────────────────────────────────
+    avatarEl.addEventListener('click', e => {
       e.stopPropagation();
       const isOpen = notifDropdown.style.display === 'block';
       notifDropdown.style.display = isOpen ? 'none' : 'block';
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', () => { notifDropdown.style.display = 'none'; });
-    notifDropdown.addEventListener('click', (e) => e.stopPropagation());
+    // FIXED: Only add the document close-listener once per page load
+    if (!document.__navbarClickListenerAdded) {
+      document.__navbarClickListenerAdded = true;
+      document.addEventListener('click', () => {
+        const d = document.getElementById('navbar-notif-dropdown');
+        if (d) d.style.display = 'none';
+      });
+    }
+    notifDropdown.addEventListener('click', e => e.stopPropagation());
 
-    // Real-time pending request notifications
+    // ── Real-time pending request count ─────────────────────────
     db.collection('requests')
       .where('toUid', '==', user.uid)
       .where('status', '==', 'pending')
@@ -219,11 +237,14 @@ async function renderNavbar(activeTab) {
               <span style="font-size:1.1rem">📨</span>
               <div>
                 <div style="font-weight:600">New request from ${req.fromName || 'Someone'}</div>
-                <div style="color:var(--text-muted);font-size:0.75rem;margin-top:2px">${req.skillOffered} ↔ ${req.skillWanted}</div>
+                <div style="color:var(--text-muted);font-size:0.75rem;margin-top:2px">${req.skillOffered || '?'} ↔ ${req.skillWanted || '?'}</div>
               </div>
             </div>`;
           }).join('');
         }
+      }, () => {
+        // Silently ignore index errors on nav notification count
+        notifInner.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:0.82rem"><a href="notifications.html">View notifications →</a></div>';
       });
   }
 
@@ -298,14 +319,12 @@ function initTagInput(containerId, inputId, tags = [], type = 'offer') {
 // ---- Compute Match Score Between Two User Skill Sets ----
 function computeMatchScore(myOffered, myWanted, theirOffered, theirWanted) {
   const norm = s => s.toLowerCase().trim();
-  const myOffNorm = myOffered.map(norm);
-  const myWantNorm = myWanted.map(norm);
+  const myOffNorm    = myOffered.map(norm);
+  const myWantNorm   = myWanted.map(norm);
   const theirOffNorm = theirOffered.map(norm);
   const theirWantNorm = theirWanted.map(norm);
 
-  // I can teach what they want
-  const iTeachThem = myOffNorm.filter(s => theirWantNorm.includes(s)).length;
-  // They can teach what I want
+  const iTeachThem  = myOffNorm.filter(s => theirWantNorm.includes(s)).length;
   const theyTeachMe = theirOffNorm.filter(s => myWantNorm.includes(s)).length;
 
   const total = (myOffNorm.length + theirWantNorm.length + myWantNorm.length + theirOffNorm.length) / 2;

@@ -342,8 +342,14 @@
     });
 
     // Google Sign-Up
+    // FIXED: guard against double-click causing auth/cancelled-popup-request
+    let _googlePopupBusy = false;
     document.getElementById('google-signup-btn').addEventListener('click', async () => {
+      if (_googlePopupBusy) return;
+      _googlePopupBusy = true;
       clearError();
+      const btn = document.getElementById('google-signup-btn');
+      btn.disabled = true;
       const provider = new firebase.auth.GoogleAuthProvider();
       try {
         const result = await auth.signInWithPopup(provider);
@@ -355,7 +361,13 @@
         showToast('Welcome to SkillSwap! 🎉', 'success');
         setTimeout(() => window.location.href = snap.exists ? 'feed.html' : 'profile.html', 800);
       } catch (err) {
-        setError(err.message);
+        const ignored = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
+        if (!ignored.includes(err.code)) {
+          setError(err.message);
+        }
+      } finally {
+        _googlePopupBusy = false;
+        btn.disabled = false;
       }
     });
   </script>

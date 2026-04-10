@@ -282,8 +282,14 @@
     });
 
     // Google Sign-In
+    // FIXED: guard against double-click causing auth/cancelled-popup-request
+    let _googlePopupBusy = false;
     document.getElementById('google-signin-btn').addEventListener('click', async () => {
+      if (_googlePopupBusy) return;
+      _googlePopupBusy = true;
       clearError();
+      const btn = document.getElementById('google-signin-btn');
+      btn.disabled = true;
       const provider = new firebase.auth.GoogleAuthProvider();
       try {
         const result = await auth.signInWithPopup(provider);
@@ -306,7 +312,14 @@
         showToast('Signed in with Google!', 'success');
         setTimeout(() => window.location.href = 'feed.html', 800);
       } catch (err) {
-        setError(err.message);
+        // Silently ignore: user closed the popup or a duplicate popup was cancelled
+        const ignored = ['auth/cancelled-popup-request', 'auth/popup-closed-by-user'];
+        if (!ignored.includes(err.code)) {
+          setError(err.message);
+        }
+      } finally {
+        _googlePopupBusy = false;
+        btn.disabled = false;
       }
     });
 

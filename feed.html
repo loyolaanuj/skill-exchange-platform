@@ -795,6 +795,7 @@
   let openComments = new Set();     // post IDs with comments section open
   let likedPosts   = new Set(JSON.parse(localStorage.getItem('likedPosts') || '[]'));
   let commentsCache = {};           // postId → comments array
+  let _postsUnsubscribe = null;     // FIXED: track listener so it's created only once
 
   /* ── INIT ─────────────────────────────────────────────────── */
   requireAuth(async (user) => {
@@ -984,11 +985,13 @@
 
   /* ── FIRESTORE LISTENER ───────────────────────────────────── */
   function listenToPosts() {
-    db.collection('posts')
+    // FIXED: Only create one listener — unsubscribe if already exists
+    if (_postsUnsubscribe) return;
+    _postsUnsubscribe = db.collection('posts')
       .orderBy('createdAt', 'desc')
       .limit(80)
       .onSnapshot(snap => {
-        // Remove skeleton loaders
+        // Remove skeleton loaders on first load
         ['skel-1','skel-2'].forEach(id => document.getElementById(id)?.remove());
 
         allPosts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -998,7 +1001,7 @@
         renderInsights();
         updateMyPostsCount();
       }, err => {
-        console.error(err);
+        console.error('Feed listener error:', err);
         showToast('Could not load feed. ' + err.message, 'error');
       });
   }
@@ -1269,6 +1272,9 @@
     const input  = document.getElementById(`comment-input-${postId}`);
     const submit = document.getElementById(`comment-submit-${postId}`);
     if (!input || !submit) return;
+    // FIXED: Only bind once — skip if already bound
+    if (submit.dataset.bound === '1') return;
+    submit.dataset.bound = '1';
 
     const send = async () => {
       const text = input.value.trim();
@@ -1392,13 +1398,39 @@
   }
 
   function filterBySkill(skill) {
+    // FIXED: filter allPosts and re-render entire feed with proper bindings
+    const saved = activeFilter;
     showToast(`Showing posts about "${skill}"`, 'info');
-    // Filter allPosts by skill
     const list  = document.getElementById('feed-list');
     const posts = allPosts.filter(p => (p.skill||'').toLowerCase() === skill.toLowerCase());
     if (!posts.length) { showToast('No posts for this skill yet.', 'info'); return; }
     list.innerHTML = posts.map((p, i) => renderPostCard(p, i)).join('');
-    bindFeedInteractions();
+    // Bind all interactions
+    list.querySelectorAll('[data-like]').forEach(btn => {
+      btn.addEventListener('click', () => toggleLike(btn.dataset.like));
+    });
+    list.querySelectorAll('[data-comment]').forEach(btn => {
+      btn.addEventListener('click', () => toggleComments(btn.dataset.comment));
+    });
+    list.querySelectorAll('[data-share]').forEach(btn => {
+      btn.addEventListener('click', () => sharePost(btn.dataset.share));
+    });
+    list.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', () => deletePost(btn.dataset.delete));
+    });
+    list.querySelectorAll('[data-seemore]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.seemore;
+        expandedPosts.add(id);
+        const textEl = document.getElementById(`post-text-${id}`);
+        if (textEl) { textEl.classList.remove('collapsed'); btn.remove(); }
+      });
+    });
+    requestAnimationFrame(() => {
+      list.querySelectorAll('.pp-fill').forEach(bar => {
+        bar.style.width = (bar.dataset.target || '0') + '%';
+      });
+    });
   }
 
   /* ── INSIGHTS ─────────────────────────────────────────────── */
