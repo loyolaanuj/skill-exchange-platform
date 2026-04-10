@@ -266,7 +266,7 @@
       try {
         await auth.signInWithEmailAndPassword(emailEl.value.trim(), passEl.value);
         showToast('Welcome back!', 'success');
-        setTimeout(() => window.location.href = 'dashboard.html', 800);
+        setTimeout(() => window.location.href = 'feed.html', 800);
       } catch (err) {
         loginBtn.disabled = false;
         loginBtn.textContent = 'Sign In';
@@ -304,7 +304,7 @@
           });
         }
         showToast('Signed in with Google!', 'success');
-        setTimeout(() => window.location.href = 'dashboard.html', 800);
+        setTimeout(() => window.location.href = 'feed.html', 800);
       } catch (err) {
         setError(err.message);
       }

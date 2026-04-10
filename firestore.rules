@@ -80,6 +80,45 @@ service cloud.firestore {
     }
 
     // =========================================
+    // POSTS COLLECTION (Feed + Progress updates)
+    // =========================================
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+
+      // Only the author can create a post
+      allow create: if request.auth != null &&
+        request.resource.data.authorUid == request.auth.uid;
+
+      // Author can fully update / delete their own post
+      allow update: if request.auth != null && (
+        resource.data.authorUid == request.auth.uid ||
+        // Any auth'd user may increment likes or commentCount only
+        (request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likes', 'commentCount']))
+      );
+
+      allow delete: if request.auth != null &&
+        resource.data.authorUid == request.auth.uid;
+
+      // ---- Comments sub-collection ----
+      match /comments/{commentId} {
+        // Any authenticated user can read comments
+        allow read: if request.auth != null;
+
+        // Authenticated users can post a comment as themselves
+        allow create: if request.auth != null &&
+          request.resource.data.authorUid == request.auth.uid;
+
+        // Only the comment author can delete their own comment
+        allow delete: if request.auth != null &&
+          resource.data.authorUid == request.auth.uid;
+
+        // Comments cannot be edited
+        allow update: if false;
+      }
+    }
+
+    // =========================================
     // SESSIONS COLLECTION (Scheduling)
     // =========================================
     match /sessions/{sessionId} {

@@ -2,7 +2,7 @@
   "name": "SkillSwap",
   "short_name": "SkillSwap",
   "description": "Skill Exchange Platform — teach what you know, learn what you want",
-  "start_url": "./dashboard.html",
+  "start_url": "./feed.html",
   "display": "standalone",
   "background_color": "#0D0D1A",
   "theme_color": "#6C63FF",
@@ -27,7 +27,7 @@
     {
       "name": "Dashboard",
       "short_name": "Home",
-      "url": "./dashboard.html",
+      "url": "./feed.html",
       "description": "Go to your dashboard"
     },
     {

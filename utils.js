@@ -104,11 +104,11 @@ function requireAuth(callback) {
   });
 }
 
-// ---- Redirect to Dashboard if Already Authenticated ----
+// ---- Redirect to Feed if Already Authenticated ----
 function redirectIfAuth() {
   auth.onAuthStateChanged(user => {
     if (user) {
-      window.location.href = 'dashboard.html';
+      window.location.href = 'feed.html';
     }
   });
 }
@@ -131,16 +131,20 @@ async function renderNavbar(activeTab) {
   if (!navEl) return;
 
   const links = [
-    { href: 'dashboard.html', label: '🏠 Dashboard', id: 'dashboard' },
-    { href: 'browse.html', label: '🔍 Browse', id: 'browse' },
-    { href: 'chat.html', label: '💬 Chat', id: 'chat' },
-    { href: 'profile.html', label: '👤 Profile', id: 'profile' },
+    { href: 'feed.html',          label: '🏠 Feed',          id: 'feed' },
+    { href: 'dashboard.html',     label: '📊 Dashboard',     id: 'dashboard' },
+    { href: 'browse.html',        label: '🔍 Browse',        id: 'browse' },
+    { href: 'chat.html',          label: '💬 Chat',          id: 'chat' },
+    { href: 'leaderboard.html',   label: '🏆 Leaderboard',  id: 'leaderboard' },
+    { href: 'schedule.html',      label: '📅 Schedule',      id: 'schedule' },
+    { href: 'notifications.html', label: '🔔 Notifications', id: 'notifications' },
+    { href: 'profile.html',       label: '👤 Profile',       id: 'profile' },
   ];
 
   navEl.innerHTML = `
     <nav class="navbar">
       <div class="container">
-        <a href="dashboard.html" class="nav-logo">
+        <a href="feed.html" class="nav-logo">
           <div class="logo-icon">⚡</div>
           <span>SkillSwap</span>
         </a>
@@ -153,11 +157,14 @@ async function renderNavbar(activeTab) {
         <div class="nav-actions">
           <button class="dark-toggle" id="dark-toggle-btn">🌙</button>
           <div style="position:relative">
-            <div class="nav-avatar" id="nav-avatar-btn">?</div>
-            <div id="notif-dot" class="notif-dot hidden"></div>
-            <div id="notif-dropdown" class="notif-dropdown hidden">
-              <div class="notif-header">Notifications</div>
-              <div id="notif-list"></div>
+            <div class="nav-avatar" id="nav-avatar-btn" title="Notifications" style="cursor:pointer;position:relative">?</div>
+            <div id="navbar-notif-dot" style="position:absolute;top:0;right:0;width:10px;height:10px;border-radius:50%;background:#ef4444;border:2px solid var(--bg-nav,#0f0f1a);display:none"></div>
+            <div id="navbar-notif-dropdown" style="position:absolute;top:52px;right:0;min-width:280px;background:var(--bg-card-2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;overflow:hidden;display:none">
+              <div style="padding:12px 16px;border-bottom:1px solid var(--border-light);font-size:0.85rem;font-weight:700">🔔 Notifications</div>
+              <div id="navbar-notif-inner" style="max-height:280px;overflow-y:auto"></div>
+              <div style="padding:10px 16px;border-top:1px solid var(--border-light);text-align:center">
+                <a href="notifications.html" style="font-size:0.78rem;color:var(--primary-light)">View all →</a>
+              </div>
             </div>
           </div>
           <button class="btn btn-sm btn-secondary" id="logout-btn">Sign Out</button>
@@ -171,8 +178,9 @@ async function renderNavbar(activeTab) {
   const user = auth.currentUser;
   if (user) {
     const avatarEl = document.getElementById('nav-avatar-btn');
-    const notifBtn = document.getElementById('nav-avatar-btn');
-    const notifDropdown = document.getElementById('notif-dropdown');
+    const notifDropdown = document.getElementById('navbar-notif-dropdown');
+    const notifDot = document.getElementById('navbar-notif-dot');
+    const notifInner = document.getElementById('navbar-notif-inner');
 
     // Avatar logic
     try {
@@ -185,20 +193,37 @@ async function renderNavbar(activeTab) {
       }
     } catch (e) { avatarEl.textContent = getInitials(user.email); }
 
-    // Notifications
-    notifBtn.addEventListener('click', () => notifDropdown.classList.toggle('hidden'));
+    // Toggle notification dropdown
+    avatarEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = notifDropdown.style.display === 'block';
+      notifDropdown.style.display = isOpen ? 'none' : 'block';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => { notifDropdown.style.display = 'none'; });
+    notifDropdown.addEventListener('click', (e) => e.stopPropagation());
+
+    // Real-time pending request notifications
     db.collection('requests')
       .where('toUid', '==', user.uid)
       .where('status', '==', 'pending')
       .onSnapshot(snap => {
-        const dot = document.getElementById('notif-dot');
-        const list = document.getElementById('notif-list');
-        dot.classList.toggle('hidden', snap.empty);
-        list.innerHTML = snap.empty ? '<div class="p-2">No new requests</div>' : '';
-        snap.forEach(doc => {
-          const req = doc.data();
-          list.innerHTML += `<div class="notif-item">New request from ${req.fromName}</div>`;
-        });
+        notifDot.style.display = snap.empty ? 'none' : 'block';
+        if (snap.empty) {
+          notifInner.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:0.82rem">No new notifications</div>';
+        } else {
+          notifInner.innerHTML = snap.docs.map(doc => {
+            const req = doc.data();
+            return `<div style="padding:12px 16px;border-bottom:1px solid var(--border-light);font-size:0.82rem;display:flex;gap:10px;align-items:flex-start;cursor:pointer" onclick="window.location.href='notifications.html'">
+              <span style="font-size:1.1rem">📨</span>
+              <div>
+                <div style="font-weight:600">New request from ${req.fromName || 'Someone'}</div>
+                <div style="color:var(--text-muted);font-size:0.75rem;margin-top:2px">${req.skillOffered} ↔ ${req.skillWanted}</div>
+              </div>
+            </div>`;
+          }).join('');
+        }
       });
   }
 

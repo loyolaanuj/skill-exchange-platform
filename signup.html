@@ -353,7 +353,7 @@
           await createUserProfile(user, user.displayName);
         }
         showToast('Welcome to SkillSwap! 🎉', 'success');
-        setTimeout(() => window.location.href = snap.exists ? 'dashboard.html' : 'profile.html', 800);
+        setTimeout(() => window.location.href = snap.exists ? 'feed.html' : 'profile.html', 800);
       } catch (err) {
         setError(err.message);
       }
